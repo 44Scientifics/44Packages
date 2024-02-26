@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly import plot
 from functools import reduce
-from FortyFour.finance.utils import get_all_cik
+from FortyFour.Finance.utils import get_all_cik
 
 
 class Company:
@@ -12,6 +12,7 @@ class Company:
     def __init__(self, ticker):
         self.ticker = str.upper(ticker)
         df = get_all_cik()
+        df.set_index('ticker', inplace=True)
 
         df = df[df.index == self.ticker]
 
