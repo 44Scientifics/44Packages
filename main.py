@@ -1,4 +1,5 @@
-from FortyFour.finance.company import Company
+from FortyFour.Finance.company import Company
 
-comp = Company("bac")
+comp = Company('AAPL')
+
 print(comp.company_name)

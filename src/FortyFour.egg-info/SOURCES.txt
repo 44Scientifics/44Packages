@@ -9,3 +9,6 @@ src/FortyFour/Finance/__init__.py
 src/FortyFour/Finance/company.py
 src/FortyFour/Finance/utils.py
 src/FortyFour/Geospace/__init__.py
+src/FortyFour/Geospace/utils.py
+src/FortyFour/Utils/__init__.py
+src/FortyFour/Utils/colors.py

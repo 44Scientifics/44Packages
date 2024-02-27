@@ -1,14 +1,20 @@
+from functools import cache
 import requests
 import pandas as pd
 import plotly.express as px
+import requests_cache
+from datetime import timedelta
+
+
 
 
 def get_all_cik():
     headers = requests.utils.default_headers()  # type: ignore
     headers.update({'User-Agent': 'My User Agent 1.0', })  # type: ignore
-    url = f"https://www.sec.gov/files/company_tickers.json"
-    response = requests.get(url, headers=headers).json()
-
+    _url = "https://www.sec.gov/files/company_tickers.json"
+    session = requests_cache.CachedSession('demo_cache')
+    response = session.get(url=_url,headers=headers, expire_after=timedelta(hours=1)).json()
+    #response = requests.get(url, headers=headers).json()
     df = pd.DataFrame.from_dict(response).T
     df.rename(columns={"cik_str": "cik", "title": "NAME"}, inplace=True)
     # formatting CIK number
@@ -79,10 +85,14 @@ def get_company_logo_url(name):
         #print(result)
         return result
 
+def request_company_filing(cik:str)-> requests.Response:
+    # Get a copy of the default headers that requests would use
+    headers = requests.utils.default_headers()  # type: ignore
+    headers.update({'User-Agent': 'My User Agent 1.0', })  # type: ignore
+    url = f"https://data.sec.gov/api/xbrl/companyfacts/{cik}.json"
+    response = requests.get(url, headers=headers).json()
+    return response
 
 
 if __name__ == "__main__":
-    df = get_all_cik()
-    # df_row = df.iloc("AVGO")
-    df = df[df.index == "AVGO"]
-    print(df)
+    print(get_all_cik())

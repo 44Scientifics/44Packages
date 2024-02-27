@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly import plot
 from functools import reduce
-from FortyFour.Finance.utils import get_all_cik
+from FortyFour.Finance.utils import get_all_cik, request_company_filing
 
 
 class Company:
@@ -17,14 +17,8 @@ class Company:
         df = df[df.index == self.ticker]
 
         self.cik = df["cik"].values[0]
-        # Get a copy of the default headers that requests would use
-        headers = requests.utils.default_headers()  # type: ignore
-
-        headers.update({'User-Agent': 'My User Agent 1.0', })  # type: ignore
-
-        url = f"https://data.sec.gov/api/xbrl/companyfacts/{self.cik}.json"
-        self.response = requests.get(url, headers=headers).json()
-
+        self.response= request_company_filing(self.cik)
+        
         # for example us-gaap or ifrs etc...
         accounting_norm_list = [x for x in [*self.response['facts']] if x not in ["srt", "invest"]]
 
@@ -92,7 +86,7 @@ class Company:
 
             return fig
 
-    def Financials(self, selected_gaap: [str], form_type=None):
+    def Financials(self, selected_gaap: list[str], form_type=None):
         '''Select a list of gaap and the function will return a dataframe ot the selected gaaps'''
 
         df_list_to_merge = []
