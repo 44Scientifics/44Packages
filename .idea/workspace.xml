@@ -5,23 +5,45 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="58a6d863-3f07-48e4-9d7e-0e173cfae863" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/build/lib/FortyFour/Finance/etf.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib/FortyFour/Utils/aws.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/dist/FortyFour-0.0.2-py3-none-any.whl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/dist/FortyFour-0.0.2.tar.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.env 2" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Finance/company.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/FortyFour/Finance/company.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Finance/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/FortyFour/Finance/utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/FortyFour-0.0.1-py3-none-any.whl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/FortyFour-0.0.1.tar.gz" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/FortyFour.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/src/FortyFour.egg-info/PKG-INFO" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/FortyFour.egg-info/SOURCES.txt" beforeDir="false" afterPath="$PROJECT_DIR$/src/FortyFour.egg-info/SOURCES.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/FortyFour/Finance/company.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/FortyFour/Finance/company.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/FortyFour/Finance/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/FortyFour/Finance/utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/FortyFour/Utils/aws.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/FortyFour/Utils/aws.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/44Packages.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Finance/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Finance/company.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Finance/etf.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Finance/utils.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Geospace/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Geospace/utils.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Utils/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Utils/aws.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Utils/colors.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo_cache.sqlite" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/FortyFour-0.0.2-py3-none-any.whl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/FortyFour-0.0.2.tar.gz" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour.egg-info/PKG-INFO" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour.egg-info/SOURCES.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour.egg-info/dependency_links.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour.egg-info/top_level.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Finance/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Finance/company.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Finance/etf.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Finance/utils.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Geospace/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Geospace/utils.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Utils/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Utils/aws.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Utils/colors.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/__init__.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

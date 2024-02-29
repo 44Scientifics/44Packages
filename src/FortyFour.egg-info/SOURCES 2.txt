@@ -2,12 +2,8 @@ README.md
 setup.py
 src/FortyFour/__init__.py
 src/FortyFour.egg-info/PKG-INFO
-src/FortyFour.egg-info/PKG-INFO 2
-src/FortyFour.egg-info/SOURCES 2.txt
 src/FortyFour.egg-info/SOURCES.txt
-src/FortyFour.egg-info/dependency_links 2.txt
 src/FortyFour.egg-info/dependency_links.txt
-src/FortyFour.egg-info/top_level 2.txt
 src/FortyFour.egg-info/top_level.txt
 src/FortyFour/Finance/__init__.py
 src/FortyFour/Finance/company.py
