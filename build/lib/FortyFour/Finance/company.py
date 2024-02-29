@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from plotly import plot
 from functools import reduce
 from FortyFour.Finance.utils import get_all_cik, request_company_filing
+from functools import cache, lru_cache
 
 
 class Company:
@@ -17,8 +18,8 @@ class Company:
         df = df[df.index == self.ticker]
 
         self.cik = df["cik"].values[0]
-        self.response= request_company_filing(self.cik)
-        
+        self.response = request_company_filing(self.cik)
+
         # for example us-gaap or ifrs etc...
         accounting_norm_list = [x for x in [*self.response['facts']] if x not in ["srt", "invest"]]
 
@@ -28,13 +29,13 @@ class Company:
         self.company_name = company_name
         self.gaap_List = self.response['facts'][self.GAAP_NORM].keys()
 
-    def get_gaap_list(self):
-
-        print(f'get_gaap_list() called for : CIK: {self.cik}, {self.company_name}')
-
-        gaaplist = self.response['facts'][self.GAAP_NORM]
-
-        return gaaplist
+    # def get_gaap_list(self):
+    #
+    #     print(f'get_gaap_list() called for : CIK: {self.cik}, {self.company_name}')
+    #
+    #     gaaplist = self.response['facts'][self.GAAP_NORM]
+    #
+    #     return gaaplist
     def compounding_annual_growth_rate(self, df, nb_years, inline_graph=False):
         # Check if the data is a dataframe:
         is_dataframe = isinstance(df, pd.DataFrame)
@@ -85,8 +86,8 @@ class Company:
                        }))
 
             return fig
-
-    def Financials(self, selected_gaap: list[str], form_type=None):
+        
+    def Financials(self, selected_gaap:[], form_type=None):
         '''Select a list of gaap and the function will return a dataframe ot the selected gaaps'''
 
         df_list_to_merge = []

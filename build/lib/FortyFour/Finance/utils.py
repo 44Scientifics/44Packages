@@ -82,7 +82,7 @@ def get_company_logo_url(name):
         name = name.replace('&', '-')
         
         result = f"{url}{name}"
-        #print(result)
+        print(result)
         return result
 
 def request_company_filing(cik:str)-> requests.Response:
