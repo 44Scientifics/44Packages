@@ -2,9 +2,10 @@ import numpy as np
 from dateutil.parser import parse
 from datetime import datetime
 import json
+import logging
 
 
-def serialize_date_in_dict(my_dict:dict):
+def serialize_date_in_dict(my_dict: dict):
     for key, value in my_dict.items():
         if isinstance(value, dict):
             value = serialize_date_in_dict(value)
@@ -12,10 +13,11 @@ def serialize_date_in_dict(my_dict:dict):
             my_dict[key] = parse(value)
             my_dict[key] = datetime.combine(my_dict[key], datetime.min.time())
         except:
-            #print("convert_string_to_date_in_dict() as encounter an exception")
+            # print("convert_string_to_date_in_dict() as encounter an exception")
             pass
     return my_dict
     datetime.now().isoformat()
+
 
 def remove_nan_values_from_dict(my_dict: dict):
     """
@@ -48,9 +50,7 @@ def convert_string_to_date_in_dict(my_dict: dict):
         try:
             my_dict[key] = parse(value)
             my_dict[key] = datetime.combine(my_dict[key], datetime.min.time())
-        except:
-            #print("convert_string_to_date_in_dict() as encounter an exception")
+        except Exception as e:
+            logging.warning('The function convert_string_to_date_in_dict(my_dict) encounter an exeption: ', e)
             pass
     return my_dict
-
-

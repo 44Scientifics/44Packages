@@ -1,3 +1,5 @@
+import logging
+
 import requests
 import pandas as pd
 import plotly.express as px
@@ -5,7 +7,6 @@ import plotly.graph_objects as go
 from plotly import plot
 from functools import reduce
 from FortyFour.Finance.utils import get_all_cik, request_company_filing
-from functools import cache, lru_cache
 
 
 class Company:
@@ -39,7 +40,7 @@ class Company:
     def compounding_annual_growth_rate(self, df, nb_years, inline_graph=False):
         # Check if the data is a dataframe:
         is_dataframe = isinstance(df, pd.DataFrame)
-        if isinstance(df, pd.DataFrame) == False:
+        if not isinstance(df, pd.DataFrame):
             df = pd.DataFrame(df)
 
         if len(df.index) >= (nb_years + 1):
@@ -48,7 +49,8 @@ class Company:
             try:
                 result = round(
                     ((ending_value / beginning_value) ** (1 / nb_years) - 1), 3) * 100
-            except:
+            except Exception as e:
+                logging.warning('The function compounding_annual_growth_rate() encounter an exeption: ', e)
                 result = 0
 
             fig = go.Figure(go.Indicator(
@@ -86,8 +88,8 @@ class Company:
                        }))
 
             return fig
-        
-    def Financials(self, selected_gaap:[], form_type=None):
+
+    def Financials(self, selected_gaap: [], form_type=None):
         '''Select a list of gaap and the function will return a dataframe ot the selected gaaps'''
 
         df_list_to_merge = []
@@ -96,7 +98,8 @@ class Company:
             df = pd.DataFrame()
             # print(GAAP_NORM)
             try:  # try gaap norm
-                gaap_unit = list(self.response['facts'][self.GAAP_NORM][gaap]['units'].keys())[-1]  # sometimes it can be multiple currencies so I select the last
+                gaap_unit = list(self.response['facts'][self.GAAP_NORM][gaap]['units'].keys())[
+                    -1]  # sometimes it can be multiple currencies so I select the last
                 df = pd.DataFrame.from_records(
                     self.response['facts'][self.GAAP_NORM][gaap]["units"][gaap_unit]).dropna()
             except Exception as e:  # try dei
@@ -251,22 +254,21 @@ class Company:
 
         return df
 
-
     def PropertyPlantAndEquipmentGross(self, form_type="10-Q"):
-        list = []
+        my_list = []
         # don't show de result of gaaplist on screen, just use the result
         gaaplist = self.gaap_List
 
         for item in ["PropertyPlantAndEquipmentGross", 'PropertyPlantAndEquipment',
                      "RealEstateInvestmentPropertyAtCost", "GrossInvestmentInRealEstateAssets"]:
             if item in gaaplist:
-                list.append(item)
+                my_list.append(item)
 
-        if len(list) == 0:
-            list.append('PropertyPlantAndEquipmentNet')
-            # df = self.Financials(list, form_type=form_type)
+        if len(my_list) == 0:
+            my_list.append('PropertyPlantAndEquipmentNet')
+            # df = self.Financials(my_list, form_type=form_type)
 
-        df = self.Financials(list, form_type=form_type)
+        df = self.Financials(my_list, form_type=form_type)
         # This line remove duplicates horizontally across columns
         df = df.apply(lambda x: pd.Series(x.unique()), axis=1)
         df['PropertyPlantAndEquipmentsGross'] = df.sum(axis=1)
@@ -428,7 +430,7 @@ class Company:
             )
         )
 
-        if show_graph == True:
+        if show_graph:
             fig.show()
 
         return df['ProfitMargin'], fig
