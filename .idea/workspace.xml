@@ -6,6 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="58a6d863-3f07-48e4-9d7e-0e173cfae863" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.github/workflows/python-publish.yml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/44Packages.iml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
@@ -23,10 +24,13 @@
       <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Utils/__init__.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Utils/aws.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Utils/colors.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/Utils/helpers.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/build/lib/FortyFour/__init__.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/demo_cache.sqlite" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/FortyFour-0.0.2-py3-none-any.whl" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/dist/FortyFour-0.0.2.tar.gz" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/FortyFour-0.0.3-py3-none-any.whl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/FortyFour-0.0.3.tar.gz" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" />
@@ -47,6 +51,7 @@
       <change beforePath="$PROJECT_DIR$/src/FortyFour/Utils/__init__.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/FortyFour/Utils/aws.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/FortyFour/Utils/colors.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/FortyFour/Utils/helpers.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/FortyFour/__init__.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -78,18 +83,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_ADD_EXTERNAL_FILES": "true",
-    "Python.aws.executor": "Run",
-    "Python.company.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/cheikhcamara/Documents/GitHub/MY PACKAGES/44Packages",
-    "settings.editor.selected.configurable": "preferences.pluginManager"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
+    &quot;Python.aws.executor&quot;: &quot;Run&quot;,
+    &quot;Python.company.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/cheikhcamara/Documents/GitHub/MY PACKAGES/44Packages&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/FortyFour" />
