@@ -99,7 +99,7 @@ def get_company_logo_url(name):
             return "https://placehold.co/600x400?text=Logo"
 
 
-def request_company_filing(cik: str) -> requests.Response:
+def request_company_filing(cik: str) -> json:
     # Get a copy of the default headers that requests would use
     #headers = requests.utils.default_headers()  # type: ignore
     # headers.update({'User-Agent': 'My User Agent 1.0', })  # type: ignore
@@ -109,12 +109,13 @@ def request_company_filing(cik: str) -> requests.Response:
         'accept': 'application/json'
     }
     url = f"https://data.sec.gov/api/xbrl/companyfacts/{cik}.json"
-    r = requests.get(url)
-    logging.info(f"Content Type is: --------------------------------------- {r.headers.get('Content-Type')}")
-
     response = requests.get(url, headers=headers)
     return response.json()
 
 
 if __name__ == "__main__":
-    print(get_all_cik())
+    #print(get_all_cik())
+    response = request_company_filing("CIK0000320193")
+    accounting_norm_list = [x for x in [*response["facts"].keys()] if x not in ["srt", "invest", "dei"]]
+    print(accounting_norm_list)
+
