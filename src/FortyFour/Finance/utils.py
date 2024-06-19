@@ -112,8 +112,8 @@ def request_company_filing(cik: str) -> requests.Response:
     r = requests.get(url)
     logging.info(f"Content Type is: --------------------------------------- {r.headers.get('Content-Type')}")
 
-    response = requests.get(url, headers=headers).json()
-    return response
+    response = requests.get(url, headers=headers)
+    return response.json()
 
 
 if __name__ == "__main__":
