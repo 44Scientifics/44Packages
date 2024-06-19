@@ -26,7 +26,7 @@ class Company:
         accounting_norm_list = [x for x in [*filing_request_response] if x not in ["srt", "invest","dei"]]
         logging.info(f"Accounting Norms for {ticker}: {accounting_norm_list}")
 
-        self.GAAP_NORM = accounting_norm_list[-1]
+        self.GAAP_NORM = accounting_norm_list[1]
 
 
 
