@@ -11,23 +11,24 @@ from FortyFour.Finance.utils import get_all_cik, request_company_filing
 
 class Company:
     # Initial initialization method
-    def __init__(self, ticker):
-        self.ticker = str.upper(ticker)
-        df = get_all_cik()
-        df.set_index('ticker', inplace=True)
+    def __init__(self, ticker, json_data=None, cik=None):
+        self.cik = cik
+        if cik is None:
+            self.ticker = str.upper(ticker)
+            df = get_all_cik()
+            df.set_index('ticker', inplace=True)
+            df = df[df.index == self.ticker]
+            self.cik = df["cik"].values[0]
 
-        df = df[df.index == self.ticker]
-
-        self.cik = df["cik"].values[0]
-        self.response = request_company_filing(self.cik)
+        self.response = json_data
+        if json_data is None:
+            self.response = request_company_filing(self.cik) # If facts is not available in the database (mongodb), then fetch from sec url
 
         # for example us-gaap or ifrs etc...
         accounting_norm_list = [x for x in [*self.response["facts"].keys()] if x not in ["srt", "invest", "dei"]]
         logging.info(f"Accounting Norms for {ticker}: {accounting_norm_list}")
 
         self.GAAP_NORM = accounting_norm_list[-1]
-
-
 
         company_name = self.response['entityName']
         self.company_name = company_name
