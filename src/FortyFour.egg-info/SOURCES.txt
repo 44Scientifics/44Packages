@@ -1,0 +1,40 @@
+.DS_Store
+README.md
+demo_cache.sqlite
+main.py
+requirements.txt
+setup.py
+.idea/workspace.xml
+dist/FortyFour-0.0.2-py3-none-any.whl
+dist/FortyFour-0.0.2.tar.gz
+src/.DS_Store
+src/FortyFour/.DS_Store
+src/FortyFour/__init__.py
+src/FortyFour.egg-info/PKG-INFO
+src/FortyFour.egg-info/PKG-INFO 2
+src/FortyFour.egg-info/SOURCES 2.txt
+src/FortyFour.egg-info/SOURCES.txt
+src/FortyFour.egg-info/dependency_links 2.txt
+src/FortyFour.egg-info/dependency_links.txt
+src/FortyFour.egg-info/top_level 2.txt
+src/FortyFour.egg-info/top_level.txt
+src/FortyFour/Finance/.DS_Store
+src/FortyFour/Finance/__init__.py
+src/FortyFour/Finance/company.py
+src/FortyFour/Finance/etf.py
+src/FortyFour/Finance/utils.py
+src/FortyFour/Finance/__pycache__/__init__.cpython-310.pyc
+src/FortyFour/Finance/__pycache__/company.cpython-310.pyc
+src/FortyFour/Finance/__pycache__/utils.cpython-310.pyc
+src/FortyFour/Geospace/__init__.py
+src/FortyFour/Geospace/utils.py
+src/FortyFour/Geospace/__pycache__/__init__.cpython-310.pyc
+src/FortyFour/Geospace/__pycache__/utils.cpython-310.pyc
+src/FortyFour/Utils/__init__.py
+src/FortyFour/Utils/aws.py
+src/FortyFour/Utils/colors.py
+src/FortyFour/Utils/helpers.py
+src/FortyFour/Utils/__pycache__/__init__.cpython-310.pyc
+src/FortyFour/Utils/__pycache__/aws.cpython-310.pyc
+src/FortyFour/Utils/__pycache__/colors.cpython-310.pyc
+src/FortyFour/__pycache__/__init__.cpython-310.pyc

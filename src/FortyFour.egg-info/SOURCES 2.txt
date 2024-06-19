@@ -1,0 +1,16 @@
+README.md
+setup.py
+src/FortyFour/__init__.py
+src/FortyFour.egg-info/PKG-INFO
+src/FortyFour.egg-info/SOURCES.txt
+src/FortyFour.egg-info/dependency_links.txt
+src/FortyFour.egg-info/top_level.txt
+src/FortyFour/Finance/__init__.py
+src/FortyFour/Finance/company.py
+src/FortyFour/Finance/etf.py
+src/FortyFour/Finance/utils.py
+src/FortyFour/Geospace/__init__.py
+src/FortyFour/Geospace/utils.py
+src/FortyFour/Utils/__init__.py
+src/FortyFour/Utils/aws.py
+src/FortyFour/Utils/colors.py
