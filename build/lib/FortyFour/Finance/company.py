@@ -23,7 +23,7 @@ class Company:
         self.response = filing_request_response
 
         # for example us-gaap or ifrs etc...
-        accounting_norm_list = [x for x in [*filing_request_response] if x not in ["srt", "invest","dei"]]
+        accounting_norm_list = [x for x in [*filing_request_response] if x not in ["srt", "invest"]]
         logging.info(f"Accounting Norms for {ticker}: {accounting_norm_list}")
 
         self.GAAP_NORM = accounting_norm_list[1]
