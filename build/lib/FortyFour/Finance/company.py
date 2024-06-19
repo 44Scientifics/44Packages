@@ -19,18 +19,17 @@ class Company:
         df = df[df.index == self.ticker]
 
         self.cik = df["cik"].values[0]
-        filing_request_response = request_company_filing(self.cik)
-        self.response = filing_request_response
+        self.response = request_company_filing(self.cik)
 
         # for example us-gaap or ifrs etc...
-        accounting_norm_list = [x for x in [*filing_request_response] if x not in ["srt", "invest"]]
+        accounting_norm_list = [x for x in [*self.response.keys()] if x not in ["srt", "invest"]]
         logging.info(f"Accounting Norms for {ticker}: {accounting_norm_list}")
 
         self.GAAP_NORM = accounting_norm_list[1]
 
 
 
-        company_name = filing_request_response['entityName']
+        company_name = self.response['entityName']
         self.company_name = company_name
         self.gaap_List = filing_request_response['facts'][self.GAAP_NORM].keys()
 
