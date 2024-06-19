@@ -31,7 +31,7 @@ class Company:
 
         company_name = self.response['entityName']
         self.company_name = company_name
-        self.gaap_List = filing_request_response['facts'][self.GAAP_NORM].keys()
+        self.gaap_List = self.response['facts'][self.GAAP_NORM].keys()
 
     # def get_gaap_list(self):
     #
