@@ -28,6 +28,8 @@ class Company:
 
         self.GAAP_NORM = accounting_norm_list[-1]
 
+        
+
         company_name = filing_request_response['entityName']
         self.company_name = company_name
         self.gaap_List = filing_request_response['facts'][self.GAAP_NORM].keys()
