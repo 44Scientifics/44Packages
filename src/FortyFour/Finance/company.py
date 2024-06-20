@@ -108,7 +108,7 @@ class Company:
                 # sometimes it can be multiple currencies so I select the last
                 gaap_unit = list(self.response['facts']["dei"][gaap]['units'].keys())[-1]
                 df = pd.DataFrame.from_records(self.response['facts']["dei"][gaap]["units"][gaap_unit])
-                print(f"An exception occurred while retrieving {gaap}", e)
+                logging.error(f"An exception occurred while retrieving {gaap}")
             df.rename(columns={'val': gaap, 'end': 'Date'}, errors="ignore", inplace=True)
 
             # We want to drop the column only if it exists by using errors='ignore'
