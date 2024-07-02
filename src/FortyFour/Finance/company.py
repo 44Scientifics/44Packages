@@ -22,7 +22,7 @@ class Company:
 
         self.response = json_data
         if json_data is None:
-            self.response = request_company_filing(self.cik) # If facts is not available in the database (mongodb), then fetch from sec url
+            self.response = request_company_filing(self.cik)  # If facts is not available in the database (mongodb), then fetch from sec url
 
         # for example us-gaap or ifrs etc...
         accounting_norm_list = [x for x in [*self.response["facts"].keys()] if x not in ["srt", "invest", "dei"]]
@@ -227,12 +227,17 @@ class Company:
         # don't show de result of gaaplist on screen, just use the result
         gaaplist = self.gaap_List
 
-        for item in ['PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities',
-                     "PaymentsToAcquireRealEstateHeldForInvestment", "PaymentsToDevelopRealEstateAssets",
-                     "PaymentsForCapitalImprovements", 'PaymentsToAcquireAndDevelopRealEstate',
-                     "PaymentsToAcquireRealEstate", "PaymentsToAcquireCommercialRealEstate",
-                     "PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets",
+        for item in ['PaymentsToAcquirePropertyPlantAndEquipment',
                      "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+                     'PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities',
+                     "PaymentsToAcquireRealEstateHeldForInvestment",
+                     "PaymentsToDevelopRealEstateAssets",
+                     "PaymentsForCapitalImprovements",
+                     'PaymentsToAcquireAndDevelopRealEstate',
+                     "PaymentsToAcquireRealEstate",
+                     "PaymentsToAcquireCommercialRealEstate",
+                     "PaymentsToAcquireProductiveAssets",
+
                      "PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets",
                      "PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets",
                      "PurchasesOfPropertyAndEquipmentAndIntangibleAssets"]:
@@ -461,7 +466,7 @@ class Company:
     def DividendPerShare(self, form_type="10-K", show_graph=False):
         # don't show de result of gaaplist on screen, just use the result
         gaaplist = self.gaap_List
-        synonyms = [ "CommonStockDividendsPerShareCashPaid","CommonStockDividendsPerShareDeclared","DividendsRecognisedAsDistributionsToOwnersPerShare"]
+        synonyms = ["CommonStockDividendsPerShareCashPaid", "CommonStockDividendsPerShareDeclared", "DividendsRecognisedAsDistributionsToOwnersPerShare"]
         mlist = [item for item in synonyms if item in gaaplist]
         df = self.Financials(mlist, form_type=form_type)
         df['DividendPerShare'] = reduce(lambda x, y: x.combine_first(y), [df[col] for col in mlist])
@@ -599,7 +604,7 @@ class Company:
     def CostOfGoodsAndServicesSold(self, form_type="10-K"):
         gaaplist = self.gaap_List
 
-        synonyms = ['CostOfGoodsAndServicesSold','CostOfRevenue']
+        synonyms = ['CostOfGoodsAndServicesSold', 'CostOfRevenue']
 
         list = [item for item in synonyms if item in gaaplist]
         df = self.Financials(list, form_type=form_type)
@@ -848,7 +853,7 @@ class Company:
         # don't show de result of gaaplist on screen, just use the result
         gaaplist = self.gaap_List
         synonyms = ['NoncurrentFinancialLiabilities', 'LongtermBorrowings', 'LongTermDebtNoncurrent', 'LongTermDebt',
-                    "LongTermDebtAndCapitalLeaseObligations","OtherLiabilitiesNoncurrent"]
+                    "LongTermDebtAndCapitalLeaseObligations", "OtherLiabilitiesNoncurrent"]
         # ["DebtInstrumentCarryingAmount"]
 
         list = [item for item in synonyms if item in gaaplist]
