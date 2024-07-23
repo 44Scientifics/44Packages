@@ -11,7 +11,7 @@ from FortyFour.Finance.utils import get_all_cik, request_company_filing
 
 class Company:
     # Initial initialization method
-    def __init__(self, ticker, json_data=None, cik=None):
+    def __init__(self, ticker, cik=None):
         self.cik = cik
         if cik is None:
             self.ticker = str.upper(ticker)
@@ -20,9 +20,7 @@ class Company:
             df = df[df.index == self.ticker]
             self.cik = df["cik"].values[0]
 
-        self.response = json_data
-        if json_data is None:
-            self.response = request_company_filing(self.cik)  # If facts is not available in the database (mongodb), then fetch from sec url
+        self.response = request_company_filing(self.cik)  # If facts is not available in the database (mongodb), then fetch from sec url
 
         # for example us-gaap or ifrs etc...
         accounting_norm_list = [x for x in [*self.response["facts"].keys()] if x not in ["srt", "invest", "dei"]]

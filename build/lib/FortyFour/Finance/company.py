@@ -11,7 +11,7 @@ from FortyFour.Finance.utils import get_all_cik, request_company_filing
 
 class Company:
     # Initial initialization method
-    def __init__(self, ticker, json_data=None, cik=None):
+    def __init__(self, ticker, cik=None):
         self.cik = cik
         if cik is None:
             self.ticker = str.upper(ticker)
@@ -20,9 +20,7 @@ class Company:
             df = df[df.index == self.ticker]
             self.cik = df["cik"].values[0]
 
-        self.response = json_data
-        if json_data is None:
-            self.response = request_company_filing(self.cik) # If facts is not available in the database (mongodb), then fetch from sec url
+        self.response = request_company_filing(self.cik)  # If facts is not available in the database (mongodb), then fetch from sec url
 
         # for example us-gaap or ifrs etc...
         accounting_norm_list = [x for x in [*self.response["facts"].keys()] if x not in ["srt", "invest", "dei"]]
@@ -108,7 +106,7 @@ class Company:
                 # sometimes it can be multiple currencies so I select the last
                 gaap_unit = list(self.response['facts']["dei"][gaap]['units'].keys())[-1]
                 df = pd.DataFrame.from_records(self.response['facts']["dei"][gaap]["units"][gaap_unit])
-                print(f"An exception occurred while retrieving {gaap}", e)
+                logging.error(f"An exception occurred while retrieving {gaap}")
             df.rename(columns={'val': gaap, 'end': 'Date'}, errors="ignore", inplace=True)
 
             # We want to drop the column only if it exists by using errors='ignore'
@@ -227,12 +225,17 @@ class Company:
         # don't show de result of gaaplist on screen, just use the result
         gaaplist = self.gaap_List
 
-        for item in ['PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities',
-                     "PaymentsToAcquireRealEstateHeldForInvestment", "PaymentsToDevelopRealEstateAssets",
-                     "PaymentsForCapitalImprovements", 'PaymentsToAcquireAndDevelopRealEstate',
-                     "PaymentsToAcquireRealEstate", "PaymentsToAcquireCommercialRealEstate",
-                     "PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets",
+        for item in ['PaymentsToAcquirePropertyPlantAndEquipment',
                      "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+                     'PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities',
+                     "PaymentsToAcquireRealEstateHeldForInvestment",
+                     "PaymentsToDevelopRealEstateAssets",
+                     "PaymentsForCapitalImprovements",
+                     'PaymentsToAcquireAndDevelopRealEstate',
+                     "PaymentsToAcquireRealEstate",
+                     "PaymentsToAcquireCommercialRealEstate",
+                     "PaymentsToAcquireProductiveAssets",
+
                      "PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets",
                      "PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets",
                      "PurchasesOfPropertyAndEquipmentAndIntangibleAssets"]:
@@ -461,7 +464,7 @@ class Company:
     def DividendPerShare(self, form_type="10-K", show_graph=False):
         # don't show de result of gaaplist on screen, just use the result
         gaaplist = self.gaap_List
-        synonyms = [ "CommonStockDividendsPerShareCashPaid","CommonStockDividendsPerShareDeclared","DividendsRecognisedAsDistributionsToOwnersPerShare"]
+        synonyms = ["CommonStockDividendsPerShareCashPaid", "CommonStockDividendsPerShareDeclared", "DividendsRecognisedAsDistributionsToOwnersPerShare"]
         mlist = [item for item in synonyms if item in gaaplist]
         df = self.Financials(mlist, form_type=form_type)
         df['DividendPerShare'] = reduce(lambda x, y: x.combine_first(y), [df[col] for col in mlist])
@@ -599,7 +602,7 @@ class Company:
     def CostOfGoodsAndServicesSold(self, form_type="10-K"):
         gaaplist = self.gaap_List
 
-        synonyms = ['CostOfGoodsAndServicesSold','CostOfRevenue']
+        synonyms = ['CostOfGoodsAndServicesSold', 'CostOfRevenue']
 
         list = [item for item in synonyms if item in gaaplist]
         df = self.Financials(list, form_type=form_type)
@@ -848,7 +851,7 @@ class Company:
         # don't show de result of gaaplist on screen, just use the result
         gaaplist = self.gaap_List
         synonyms = ['NoncurrentFinancialLiabilities', 'LongtermBorrowings', 'LongTermDebtNoncurrent', 'LongTermDebt',
-                    "LongTermDebtAndCapitalLeaseObligations","OtherLiabilitiesNoncurrent"]
+                    "LongTermDebtAndCapitalLeaseObligations", "OtherLiabilitiesNoncurrent"]
         # ["DebtInstrumentCarryingAmount"]
 
         list = [item for item in synonyms if item in gaaplist]
