@@ -32,13 +32,6 @@ class Company:
         self.company_name = company_name
         self.gaap_List = self.response['facts'][self.GAAP_NORM].keys()
 
-    # def get_gaap_list(self):
-    #
-    #     print(f'get_gaap_list() called for : CIK: {self.cik}, {self.company_name}')
-    #
-    #     gaaplist = self.response['facts'][self.GAAP_NORM]
-    #
-    #     return gaaplist
     def compounding_annual_growth_rate(self, df, nb_years, inline_graph=False):
         # Check if the data is a dataframe:
         is_dataframe = isinstance(df, pd.DataFrame)
@@ -52,7 +45,7 @@ class Company:
                 result = round(
                     ((ending_value / beginning_value) ** (1 / nb_years) - 1), 3) * 100
             except Exception as e:
-                logging.warning('The function compounding_annual_growth_rate() encounter an exeption: ', e)
+                logging.warning('The function compounding_annual_growth_rate() encounter an exception: ', e)
                 result = 0
 
             fig = go.Figure(go.Indicator(
@@ -98,7 +91,6 @@ class Company:
 
         for gaap in selected_gaap:
             df = pd.DataFrame()
-            # print(GAAP_NORM)
             try:  # try gaap norm
                 gaap_unit = list(self.response['facts'][self.GAAP_NORM][gaap]['units'].keys())[-1]  # sometimes it can be multiple currencies so I select the last
                 df = pd.DataFrame.from_records(self.response['facts'][self.GAAP_NORM][gaap]["units"][gaap_unit]).dropna()
@@ -235,9 +227,9 @@ class Company:
                      "PaymentsToAcquireRealEstate",
                      "PaymentsToAcquireCommercialRealEstate",
                      "PaymentsToAcquireProductiveAssets",
-
                      "PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets",
                      "PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets",
+                     'PurchasesOfPropertyAndEquipmentAndIntangibleAssets',
                      "PurchasesOfPropertyAndEquipmentAndIntangibleAssets"]:
 
             if item in gaaplist:
