@@ -16,7 +16,6 @@ def serialize_date_in_dict(my_dict: dict):
             # print("convert_string_to_date_in_dict() as encounter an exception")
             pass
     return my_dict
-    datetime.now().isoformat()
 
 
 def remove_nan_values_from_dict(my_dict: dict):

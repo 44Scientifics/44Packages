@@ -1,6 +1,6 @@
-from enum import Enum
+from enum import Enum, StrEnum, IntEnum, auto
 
-class FoliumColorPalette(Enum):
+class FoliumColorPalette(StrEnum):
     ACCENT = 'Accent'
     ACCENT_R = 'Accent_r'
     BLUES = 'Blues'
@@ -173,7 +173,7 @@ class FoliumColorPalette(Enum):
     WINTER_R = 'winter_r'
 
 
-class PlotlyColorPalette(Enum):
+class PlotlyColorPalette(StrEnum):
     AGGRNYL = 'aggrnyl'
     AGSUNSET = 'agsunset'
     ALGAE = 'algae'
@@ -270,7 +270,7 @@ class PlotlyColorPalette(Enum):
     YLORRD = 'ylorrd'
 
 
-class CSSColorPalette(Enum):
+class CSSColorPalette(StrEnum):
     ALICEBLUE = "aliceblue"
     ANTIQUEWHITE = "antiquewhite"
     AQUA = "aqua"
