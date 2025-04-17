@@ -32,7 +32,7 @@ def get_all_cik() -> pd.DataFrame:
         data = response.json()
     except ValueError:
         logging.error("Response content is not valid JSON.")
-        return pd.DataFrame(columns=["cik", "NAME"])
+        return pd.DataFrame(columns=["cik", "ticker", "NAME"])
 
     df = pd.DataFrame.from_dict(data, orient='index')
     df = df.rename(columns={"cik_str": "cik", "title": "NAME"})
@@ -43,7 +43,7 @@ def get_all_cik() -> pd.DataFrame:
     # Drop rows with missing values in 'cik' or 'NAME'
     df = df.dropna(subset=["cik", "NAME"])
 
-    return df[["cik", "NAME"]].reset_index(drop=True)
+    return df[["cik", "ticker", "NAME"]]
 
 
 def create_spark_line(data, _height: int = 100, _width: int = 250):
@@ -164,5 +164,5 @@ if __name__ == "__main__":
         print(f"Accounting norms found for {cik}: {accounting_norm_list}")
     else:
         print(f"No facts found in SEC response for {cik}.")
-    print(response)
+    print(get_all_cik())
 
