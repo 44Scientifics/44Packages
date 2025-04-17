@@ -11,32 +11,39 @@ from typing import Optional, Dict, Any
 @cache
 def get_all_cik() -> pd.DataFrame:
     """
-    Fetch all CIKs (Central Index Keys) from the SEC's public API.
+    Fetches all company CIKs from the SEC and returns them as a DataFrame.
     Returns:
-        pd.DataFrame: A DataFrame containing CIKs, company names, and tickers.
+        pd.DataFrame: DataFrame with columns 'cik' and 'NAME'.
     """
     url = "https://www.sec.gov/files/company_tickers.json"
     headers = {
-        'User-Agent': "Mozilla/5.0 (compatible; SEC CIK Fetcher/1.0; +https://www.sec.gov)",
+        'User-Agent': "Mozilla/5.0 (compatible; SEC CIK Fetcher/1.0)",
         'Accept': 'application/json'
     }
+
     try:
-        resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        # Use list comprehension for efficiency and clarity
-        rows = [
-            {
-                "cik": f"CIK{int(entry['cik_str']):010d}",
-                "NAME": entry["title"],
-                "ticker": entry["ticker"]
-            }
-            for entry in data.values()
-        ]
-        return pd.DataFrame(rows)
-    except Exception as e:
-        logging.error(f"Failed to fetch or parse CIK data: {e}")
-        return pd.DataFrame(columns=["cik", "NAME", "ticker"])
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logging.error(f"Failed to fetch CIK data: {e}")
+        return pd.DataFrame(columns=["cik", "NAME"])
+
+    try:
+        data = response.json()
+    except ValueError:
+        logging.error("Response content is not valid JSON.")
+        return pd.DataFrame(columns=["cik", "NAME"])
+
+    df = pd.DataFrame.from_dict(data, orient='index')
+    df = df.rename(columns={"cik_str": "cik", "title": "NAME"})
+
+    # Format CIK as 10-digit string with 'CIK' prefix
+    df["cik"] = df["cik"].apply(lambda x: f"CIK{int(x):010d}" if pd.notnull(x) else None)
+
+    # Drop rows with missing values in 'cik' or 'NAME'
+    df = df.dropna(subset=["cik", "NAME"])
+
+    return df[["cik", "NAME"]].reset_index(drop=True)
 
 
 def create_spark_line(data, _height: int = 100, _width: int = 250):
@@ -129,36 +136,28 @@ def get_company_logo_url(name):
     return placeholder_url
 
 
-def request_company_filing(cik: str) -> Optional[Dict[str, Any]]:
-    """
-    Fetch company filing data from the SEC XBRL API for a given CIK.
-    Args:
-        cik (str): The Central Index Key (CIK) of the company, e.g., 'CIK0000320193'.
-    Returns:
-        dict or None: The JSON response as a dictionary if successful, None otherwise.
-    """
-    if not (isinstance(cik, str) and cik.startswith('CIK') and cik[3:].isdigit() and len(cik) == 13):
-        logging.error(f"Invalid CIK format: {cik}")
-        return None
+def request_company_filing(cik: str) -> json:
+    # Get a copy of the default headers that requests would use
+    #headers = requests.utils.default_headers()  # type: ignore
+    # headers.update({'User-Agent': 'My User Agent 1.0', })  # type: ignore
 
-    url = f"https://data.sec.gov/api/xbrl/companyfacts/{cik}.json"
+    # check if the CIK is valid
+    if not cik.startswith("CIK"):
+        cik = "CIK" + str(cik).zfill(10)
+
     headers = {
-        'User-Agent': 'Mozilla/5.0 (compatible; SEC Filing Fetcher/1.0; +https://www.sec.gov)',
-        'Accept': 'application/json'
+        'User-Agent': 'My User Agent 1.0',
+        'accept': 'application/json'
     }
-    try:
-        resp = requests.get(url, headers=headers, timeout=20)
-        resp.raise_for_status()
-        return resp.json()
-    except (requests.RequestException, ValueError) as e:
-        logging.error(f"Failed to fetch or parse filing for {cik}: {e}")
-        return None
+    url = f"https://data.sec.gov/api/xbrl/companyfacts/{cik}.json"
+    response = requests.get(url, headers=headers)
+    return response.json()
 
 
 ACCOUNTING_NORM_EXCLUDE = {"srt", "invest", "dei"}
 
 if __name__ == "__main__":
-    cik = "320193"  # Apple Inc.
+    cik = "CIK0000320193"  # Apple Inc.
     response = request_company_filing(cik)
     if response and "facts" in response:
         accounting_norm_list = [x for x in response["facts"].keys() if x not in ACCOUNTING_NORM_EXCLUDE]
