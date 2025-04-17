@@ -23,7 +23,7 @@ def get_all_cik() -> pd.DataFrame:
     df.rename(columns={"cik_str": "cik", "title": "NAME"}, inplace=True)
     # formatting CIK number
     df["cik"] = df["cik"].apply(lambda x: f"CIK{int(x):010d}" if pd.notnull(x) else None)
-    return df
+    return df.reset_index()
 
 
 
