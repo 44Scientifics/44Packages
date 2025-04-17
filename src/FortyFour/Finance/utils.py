@@ -4,37 +4,51 @@ import requests
 import pandas as pd
 import plotly.express as px
 import logging
+import re
+from typing import Optional, Dict, Any
 
 
-def get_all_cik():
+@cache
+def get_all_cik() -> pd.DataFrame:
+    """
+    Fetch all CIKs (Central Index Keys) from the SEC's public API.
+    Returns:
+        pd.DataFrame: A DataFrame containing CIKs, company names, and tickers.
+    """
+    url = "https://www.sec.gov/files/company_tickers.json"
     headers = {
-        'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246",
+        'User-Agent': "Mozilla/5.0 (compatible; SEC CIK Fetcher/1.0; +https://www.sec.gov)",
         'Accept': 'application/json'
     }
-    url = "https://www.sec.gov/files/company_tickers.json"
-    response = requests.get(url, headers=headers)
-
-    if "json" in response.headers.get('Content-Type'):
-        logging.info(f"Content Type is: --------------------------------------- {response.headers.get('Content-Type')}")
-        response = response.json()
-        df = pd.DataFrame.from_dict(response).T
-        df.rename(columns={"cik_str": "cik", "title": "NAME"}, inplace=True)
-        # formatting CIK number
-        df["cik"] = df.apply(lambda x: "CIK" + (10 - len(str(x['cik']))) * '0' + str(x['cik']), axis=1)
-        return df
-
-    else:
-        logging.error(f"Content Type not json, but is: --------------------------------------- {response.headers.get('Content-Type')}")
-        html_text_response = response.text
-        logging.error(html_text_response)
-        df = pd.DataFrame.from_dict(json.loads(html_text_response)).T
-        df.rename(columns={"cik_str": "cik", "title": "NAME"}, inplace=True)
-        # formatting CIK number
-        df["cik"] = df.apply(lambda x: "CIK" + (10 - len(str(x['cik']))) * '0' + str(x['cik']), axis=1)
-        return df
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        # Use list comprehension for efficiency and clarity
+        rows = [
+            {
+                "cik": f"CIK{int(entry['cik_str']):010d}",
+                "NAME": entry["title"],
+                "ticker": entry["ticker"]
+            }
+            for entry in data.values()
+        ]
+        return pd.DataFrame(rows)
+    except Exception as e:
+        logging.error(f"Failed to fetch or parse CIK data: {e}")
+        return pd.DataFrame(columns=["cik", "NAME", "ticker"])
 
 
 def create_spark_line(data, _height: int = 100, _width: int = 250):
+    """
+    Create a sparkline chart using Plotly.
+    Args:
+        data: Data for the sparkline.
+        _height (int): Height of the chart.
+        _width (int): Width of the chart.
+    Returns:
+        Plotly figure object.
+    """
     df = None
     if not isinstance(data, pd.DataFrame):
         df = pd.DataFrame(data)
@@ -61,61 +75,95 @@ def create_spark_line(data, _height: int = 100, _width: int = 250):
 
 
 def get_company_logo_url(name):
-    url = 'https://s3-symbol-logo.tradingview.com/'
-    name = str.lower(name)
-    word_to_remove = [".com", "the ", " (the)", 'company', 'group']
-    for item in word_to_remove:
-        if item in name:
-            name = name.replace(item, "")
+    """
+    Generate a TradingView logo URL for a given company name.
+    Falls back to a placeholder if the logo does not exist.
+    Args:
+        name (str): The name of the company.
+    Returns:
+        str: URL of the company logo or a placeholder.
+    """
+    base_url = 'https://s3-symbol-logo.tradingview.com/'
+    placeholder_url = "https://placehold.co/600x400?text=Logo"
 
-    suffix = name.split()
+    # Normalize and clean the name
+    # Normalize company name: lowercase, remove common suffixes and noise words
+    name = name.lower()
+    # Remove common noise words and suffixes
+    remove_patterns = [
+        r"\.com\b", r"\bthe\b", r"\(the\)", r"\bcompany\b", r"\bgroup\b"
+    ]
+    for pattern in remove_patterns:
+        name = re.sub(pattern, "", name)
+    name = name.strip()
 
-    suffix_list = ["corp.", "corporation", "inc", 'incorporated', 'inc.', '(the)'
-                                                                          "limited", "ltd", 'plc', "laboratories", "communications", 'the', "company", ".com", " company", "new", 'motor', 'ag']
+    # Remove extra spaces and special characters
+    name = re.sub(r"[']", "", name)
+    name = re.sub(r"\s+", " ", name).strip()
 
-    if suffix[-1] in suffix_list:
-        name = name.replace(suffix[-1], '-big.svg')
-        name = name.replace(' ', '-')
-        name = name.replace('and', '-')
-        name = name.replace('&', '-')
-        name = name.replace("'", '')
-        result = f"{url}{name}"
-        # print(result)
-        return result
+    suffixes = [
+        "corp.", "corporation", "inc", "incorporated", "inc.", "(the)",
+        "limited", "ltd", "plc", "laboratories", "communications", "the",
+        "company", ".com", " company", "new", "motor", "ag"
+    ]
+
+    words = name.split()
+    if words and words[-1] in suffixes:
+        words[-1] = '-big.svg'
+        logo_name = '-'.join(words)
     else:
-        name = name + '--big.svg'
-        name = name.replace(' ', '-')
-        name = name.replace('and', '-')
-        name = name.replace("'", '')
-        name = name.replace('&', '-')
+        logo_name = '-'.join(words) + '--big.svg'
 
-        result = f"{url}{name}"
-        # check if the logo exists:
-        status_code = requests.get(url=result).status_code
-        if status_code == 200:
-            print(result)
-            return result
-        else:
-            return "https://placehold.co/600x400?text=Logo"
+    # Replace 'and' and '&' with '-'
+    logo_name = logo_name.replace('and', '-').replace('&', '-')
+
+    logo_url = f"{base_url}{logo_name}"
+
+    try:
+        response = requests.head(logo_url, timeout=2)
+        if response.status_code == 200:
+            return logo_url
+    except requests.RequestException:
+        pass
+
+    return placeholder_url
 
 
-def request_company_filing(cik: str) -> json:
-    # Get a copy of the default headers that requests would use
-    #headers = requests.utils.default_headers()  # type: ignore
-    # headers.update({'User-Agent': 'My User Agent 1.0', })  # type: ignore
+def request_company_filing(cik: str) -> Optional[Dict[str, Any]]:
+    """
+    Fetch company filing data from the SEC XBRL API for a given CIK.
+    Args:
+        cik (str): The Central Index Key (CIK) of the company, e.g., 'CIK0000320193'.
+    Returns:
+        dict or None: The JSON response as a dictionary if successful, None otherwise.
+    """
+    if not (isinstance(cik, str) and cik.startswith('CIK') and cik[3:].isdigit() and len(cik) == 13):
+        logging.error(f"Invalid CIK format: {cik}")
+        return None
 
-    headers = {
-        'User-Agent': 'My User Agent 1.0',
-        'accept': 'application/json'
-    }
     url = f"https://data.sec.gov/api/xbrl/companyfacts/{cik}.json"
-    response = requests.get(url, headers=headers)
-    return response.json()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (compatible; SEC Filing Fetcher/1.0; +https://www.sec.gov)',
+        'Accept': 'application/json'
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=20)
+        resp.raise_for_status()
+        return resp.json()
+    except (requests.RequestException, ValueError) as e:
+        logging.error(f"Failed to fetch or parse filing for {cik}: {e}")
+        return None
 
+
+ACCOUNTING_NORM_EXCLUDE = {"srt", "invest", "dei"}
 
 if __name__ == "__main__":
-    #print(get_all_cik())
-    response = request_company_filing("CIK0000320193")
-    accounting_norm_list = [x for x in [*response["facts"].keys()] if x not in ["srt", "invest", "dei"]]
-    print(accounting_norm_list)
+    cik = "320193"  # Apple Inc.
+    response = request_company_filing(cik)
+    if response and "facts" in response:
+        accounting_norm_list = [x for x in response["facts"].keys() if x not in ACCOUNTING_NORM_EXCLUDE]
+        print(f"Accounting norms found for {cik}: {accounting_norm_list}")
+    else:
+        print(f"No facts found in SEC response for {cik}.")
+    print(response)
 

@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def upload_to_S3(file_object, bucket_name: str, file_name: str):
+def upload_to_s3(file_object, bucket_name: str, file_name: str):
+
     s3 = boto3.client(
         service_name="s3",
         region_name=os.getenv("AWS_DEFAULT_REGION"),

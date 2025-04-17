@@ -1061,3 +1061,11 @@ class Company:
         df = self.Financials(list, form_type=form_type)
         df['EBITDA'] = df.sum(axis=1)
         return df
+    
+
+
+# SEC API request functio
+if __name__ == "__main__":
+    cik = "CIK0000320193"  # Apple Inc.
+    company = Company("AAPL")
+    print(company.EPS(form_type="10-K", show_graph=False))
