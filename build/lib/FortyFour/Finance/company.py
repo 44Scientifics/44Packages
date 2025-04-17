@@ -16,6 +16,7 @@ class Company:
         if cik is None:
             self.ticker = str.upper(ticker)
             df = get_all_cik()
+            df = df.dropna()
             df.set_index('ticker', inplace=True)
             df = df[df.index == self.ticker]
             self.cik = df["cik"].values[0]
