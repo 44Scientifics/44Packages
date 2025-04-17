@@ -10,40 +10,22 @@ from typing import Optional, Dict, Any
 
 @cache
 def get_all_cik() -> pd.DataFrame:
-    """
-    Fetches all company CIKs from the SEC and returns them as a DataFrame.
-    Returns:
-        pd.DataFrame: DataFrame with columns 'cik' and 'NAME'.
-    """
-    url = "https://www.sec.gov/files/company_tickers.json"
+   
     headers = {
-        'User-Agent': "Mozilla/5.0 (compatible; SEC CIK Fetcher/1.0)",
+        'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246",
         'Accept': 'application/json'
     }
+    url = "https://www.sec.gov/files/company_tickers.json"
+    response = requests.get(url, headers=headers)
 
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        logging.error(f"Failed to fetch CIK data: {e}")
-        return pd.DataFrame(columns=["cik", "NAME"])
-
-    try:
-        data = response.json()
-    except ValueError:
-        logging.error("Response content is not valid JSON.")
-        return pd.DataFrame(columns=["cik", "ticker", "NAME"])
-
-    df = pd.DataFrame.from_dict(data, orient='index')
-    df = df.rename(columns={"cik_str": "cik", "title": "NAME"})
-
-    # Format CIK as 10-digit string with 'CIK' prefix
+    response = response.json()
+    df = pd.DataFrame.from_dict(response).T
+    df.rename(columns={"cik_str": "cik", "title": "NAME"}, inplace=True)
+    # formatting CIK number
     df["cik"] = df["cik"].apply(lambda x: f"CIK{int(x):010d}" if pd.notnull(x) else None)
+    return df
 
-    # Drop rows with missing values in 'cik' or 'NAME'
-    df = df.dropna(subset=["cik", "NAME"])
 
-    return df[["cik", "ticker", "NAME"]]
 
 
 def create_spark_line(data, _height: int = 100, _width: int = 250):
