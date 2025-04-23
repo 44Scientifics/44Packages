@@ -63,46 +63,57 @@ def sort_dict_by_key(my_dict: dict, key: str, reverse: bool):
 
 def update_list_from_new_source_keep_old_matches(
     old_list: Optional[List[Dict[str, Any]]],
-    new_list: List[Dict[str, Any]],
-    key: str,
-    defaults: Optional[Dict[str, Any]] = None,
-    merge_fn: Optional[Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]] = None
+    new_list: Optional[List[Dict[str, Any]]],
+    default_fields: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
     """
-    Merge two lists of dictionaries based on a unique key field.
+    Merge old and new symbol entries, preserving existing data and removing deprecated symbols.
 
-    Parameters:
-        old_list: Existing list of dicts (may be None or empty).
-        new_list: Updated list of dicts. Each dict must contain the key.
-        key: The field name used to match records between lists.
-        defaults: Default values for any new records (merged into record).
-        merge_fn: Optional function(old_record, new_record) -> merged_record.
-            Called when a record exists in both lists to combine them.
-            If not provided, the old record is preserved as-is.
+    Behavior:
+      1. Removes any symbol present in old_list but absent from new_list.
+      2. For each symbol in new_list:
+         - If it exists in old_list, preserve all old properties and override them with new_list values.
+         - If it is new, initialize missing fields from default_fields.
+      3. Ensures every merged symbol has required keys.
+
+    Args:
+        old_list: Existing list of symbol documents (each with '_id', 'ticker', etc.).
+        new_list: Updated list of symbol documents.
+        default_fields: Defaults for new or missing fields (e.g. 'avg_price', 'nb_shares', 'cost_basis', 'comment' or 'score').
 
     Returns:
-        A list of merged dicts, ordered as in new_list.
+        A list of merged symbol dicts ready for storage.
+
+    Raises:
+        KeyError: If a merged entry is missing '_id' or 'ticker'.
     """
-    defaults = defaults or {}
-    # Index old list by the key (make copies to avoid mutating originals)
-    old_index: Dict[Any, Dict[str, Any]] = {
-        item[key]: item.copy() for item in (old_list or []) if key in item
-    }
+    # Initialize defaults
+    if default_fields is None:
+        default_fields = {
+            'avg_price': 0.0,
+            'nb_shares': 0.0,
+            'cost_basis': 0.0,
+        }
+
+    # Build a lookup for old entries
+    old_map: Dict[Any, Dict[str, Any]] = {item['_id']: item for item in (old_list or [])}
 
     merged: List[Dict[str, Any]] = []
-    for new_rec in new_list:
-        rec_id = new_rec.get(key)
-        if rec_id in old_index:
-            old_rec = old_index[rec_id]
-            if merge_fn:
-                merged_rec = merge_fn(old_rec, new_rec)
-            else:
-                merged_rec = old_rec
-        else:
-            # Create a new record with defaults, then update with new_rec
-            merged_rec = {**defaults}
-            merged_rec.update(new_rec)
-        merged.append(merged_rec)
+
+    # Iterate only over new_list to add or update
+    for new_item in (new_list or []):
+        key = new_item.get('_id')
+        if key is None:
+            raise KeyError(f"New entry missing '_id': {new_item}")
+
+        # Start with defaults, then old data, then new overrides
+        base = old_map.get(key, {})
+        combined = {**default_fields, **base, **new_item}
+
+        # Validate required fields
+        if '_id' not in combined or 'ticker' not in combined:
+            raise KeyError(f"Merged symbol entry missing required keys: {combined}")
+
+        merged.append(combined)
 
     return merged
-
