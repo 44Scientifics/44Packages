@@ -110,9 +110,9 @@ def update_list_from_new_source_keep_old_matches(
         base = old_map.get(key, {})
         combined = {**default_fields, **base, **new_item}
 
-        # Validate required fields
-        if '_id' not in combined or 'ticker' not in combined:
-            raise KeyError(f"Merged symbol entry missing required keys: {combined}")
+        # # Validate required fields
+        # if '_id' not in combined:
+        #     raise KeyError(f"Merged symbol entry missing required keys: {combined}")
 
         merged.append(combined)
 
