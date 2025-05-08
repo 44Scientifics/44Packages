@@ -128,7 +128,8 @@ class Company:
     A class representing a company with its CIK and name.
     """
     def __init__(self, cik: str, name: str):
-        self.cik = "CIK"+str(cik).zfill(10)  # Ensure CIK is 10 digits
+         # Ensure CIK is 10 digits
+        self.cik = "CIK"+str(cik).zfill(10) if not str(cik).startswith("CIK") else str(cik)
         self.name = name
 
         # request the company filing data
