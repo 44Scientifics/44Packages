@@ -224,6 +224,8 @@ class Company:
         df["end"] = pd.to_datetime(df["end"], format="%Y-%m-%d", errors='coerce')
         # Final sort by end date for presentation
         df = df.sort_values(by="end").reset_index(drop=True)
+        # Rename columns for clarity
+        df.rename(columns={'val': gaap_concept.value[0], 'end': 'Date'}, errors="ignore", inplace=True)
         
         return df
 
