@@ -5,8 +5,10 @@ import pandas as pd
 import plotly.express as px
 import logging
 import re
-from gaap_synonyms import GAAP
+
 from typing import List, Tuple, Optional
+
+from gaap_synonyms import GAAP
 
 def request_company_filing(cik: str) -> json:
     # Get a copy of the default headers that requests would use
