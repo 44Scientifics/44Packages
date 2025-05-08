@@ -5,10 +5,108 @@ import pandas as pd
 import plotly.express as px
 import logging
 import re
+from enum import Enum
 
 from typing import List, Tuple, Optional
 
-from gaap_synonyms import GAAP
+class GAAP(Enum):
+    """
+    Enumeration of GAAP concepts, each holding its canonical name and a list of synonyms.
+    """
+    ASSETS = ("Assets", ["Assets"])
+    ASSETS_CURRENT = ("AssetsCurrent", ["AssetsCurrent"])
+    CAPEX = ("Capex", [
+        'PaymentsToAcquirePropertyPlantAndEquipment', "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+        'PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities',
+        "PaymentsToAcquireRealEstateHeldForInvestment", "PaymentsToDevelopRealEstateAssets",
+        "PaymentsForCapitalImprovements", 'PaymentsToAcquireAndDevelopRealEstate',
+        "PaymentsToAcquireRealEstate", "PaymentsToAcquireCommercialRealEstate",
+        "PaymentsToAcquireProductiveAssets",
+        "PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets",
+        "PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssets", 'PurchasesOfPropertyAndEquipmentAndIntangibleAssets',
+    ])
+    CASH_CASH_EQUIVALENTS = ("CashAndCashEquivalentsAtCarryingValue", [
+        'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents',
+        #'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsIncludingDisposalGroupAndDiscontinuedOperations',
+        'CashAndCashEquivalentsAtCarryingValue', 'CashAndCashEquivalents'
+    ])
+    CASH_FROM_OPERATING_ACTIVITIES = ("CashFromOperatingActivities", [
+        'NetCashProvidedByUsedInOperatingActivitiesContinuingOperations',
+        'NetCashProvidedByUsedInOperatingActivities', 'CashFlowsFromUsedInOperatingActivities'
+    ])
+    CASH_FLOW_FROM_FINANCING_ACTIVITIES = ("CashFlowFromFinancingActivities", [
+        'NetCashProvidedByUsedInFinancingActivitiesContinuingOperations',
+        'NetCashProvidedByUsedInFinancingActivities', 'CashFlowsFromUsedInFinancingActivities'
+    ])
+    CASH_FLOW_FROM_INVESTING_ACTIVITIES = ("CashFlowFromInvestingActivities", [
+        'NetCashProvidedByUsedInInvestingActivitiesContinuingOperations',
+        'NetCashProvidedByUsedInInvestingActivities', 'CashFlowsFromUsedInInvestingActivities'
+    ])
+    COMMON_STOCK_SHARES_OUTSTANDING = ("CommonStockSharesOutstanding", [
+        'WeightedAverageNumberOfDilutedSharesOutstanding', 'CommonStockSharesIssued',
+        'EntityCommonStockSharesOutstanding', 'WeightedAverageNumberOfSharesOutstandingDiluted',
+        'WeightedAverageSharesOutstandingDiluted', 'CommonStockSharesOutstanding'
+    ])
+    COST_OF_GOODS_AND_SERVICES_SOLD = ("CostOfGoodsAndServicesSold", ['CostOfGoodsAndServicesSold', 'CostOfRevenue'])
+    
+    DEPRECIATION_AND_AMORTIZATION = ("DepreciationAndAmortization", [
+        'DepreciationAndAmortization', 'DepreciationDepletionAndAmortization',
+        'DepreciationAndAmortizationExcludingNuclearFuel'
+    ])
+    EARNINGS_PER_SHARE_DILUTED = ("EarningsPerShareDiluted", ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"])
+    
+    EFFECTIVE_INCOME_TAX_RATE_CONTINUING_OPERATIONS = ("EffectiveIncomeTaxRateContinuingOperations", ['EffectiveIncomeTaxRateContinuingOperations'])
+    
+    ENTITY_PUBLIC_FLOAT = ("EntityPublicFloat", ["EntityPublicFloat"])
+    
+    EQUITY = ("Equity", [
+        'StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest',
+        'StockholdersEquity', 'EquityAttributableToOwnersOfParent', 'Equity'
+    ])
+    
+    INCOME_TAX_EXPENSE_BENEFIT = ("IncomeTaxExpenseBenefit", ['IncomeTaxExpenseBenefit', "IncomeTaxesPaidNet"])
+    
+    INTEREST_EXPENSE = ("InterestExpense", ["InterestExpense", "InterestExpenseNet", "InterestExpenseNetOfHedgeIneffectiveness"])
+    
+    LIABILITIES_CURRENT = ("LiabilitiesCurrent", ['LiabilitiesCurrent'])
+    
+    LONG_TERM_DEBT = ("LongTermDebt", [
+        'LongTermDebtNoncurrent', 'LongTermDebt', 'LongtermBorrowings',
+        "LongTermDebtAndCapitalLeaseObligations", "OtherLiabilitiesNoncurrent",
+        'NoncurrentFinancialLiabilities'
+    ])
+    MARKETABLE_SECURITIES_CURRENT = ("MarketableSecuritiesCurrent", ['MarketableSecuritiesCurrent', 'ShortTermInvestments'])
+    NET_INCOME_LOSS = ("NetIncomeLoss", [
+        "NetIncomeLoss", 'ProfitLoss', 'NetIncomeLossAvailableToCommonStockholdersBasic',
+        'ProfitLossAttributableToOwnersOfParent'
+    ])
+    OPERATING_INCOME_LOSS = ("OperatingIncomeLoss", [
+        "OperatingIncomeLoss",
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+        "IncomeLossFromOperationsBeforeIncomeTaxExpenseBenefit"
+    ])
+    PROPERTY_PLANT_AND_EQUIPMENT_GROSS = ("PropertyPlantAndEquipmentGross", [
+        "PropertyPlantAndEquipmentGross", "RealEstateInvestmentPropertyAtCost",
+        "GrossInvestmentInRealEstateAssets", 'PropertyPlantAndEquipment'
+    ])
+    PROPERTY_PLANT_AND_EQUIPMENT_NET = ("PropertyPlantAndEquipmentNet", [
+        "PropertyPlantAndEquipmentNet", "NetInvestmentInRealEstateAssets",
+        'RealEstateInvestmentPropertyNet', 'PropertyPlantAndEquipment'
+    ])
+    REVENUES = ("Revenues", [
+        'RevenueFromContractWithCustomerExcludingAssessedTax', 'Revenues', 'SalesRevenueNet',
+        'Revenue', 'RevenueFromSaleOfGoods', 'RevenueFromContractsWithCustomers', 'NoninterestIncome'
+    ])
+    SHORT_TERM_PAYABLES_FOR_DEBT_CALC = ("ShortTermPayablesForDebtCalc", [
+        "TradeAndOtherCurrentPayables", "AccountsPayableCurrent", "EmployeeRelatedLiabilitiesCurrent",
+        "CurrentTaxLiabilitiesCurrent", "AccruedIncomeTaxesCurrent", "OtherShorttermProvisions",
+        "LiabilitiesIncludedInDisposalGroupsClassifiedAsHeldForSale",
+        "ContractWithCustomerLiabilityCurrent", "AccountsPayableAndAccruedLiabilitiesCurrent",
+        "AccruedLiabilitiesCurrent", "AccruedRebatesReturnsAndPromotions", "OtherLiabilitiesCurrent"
+    ])
+
+
 
 def request_company_filing(cik: str) -> json:
     # Get a copy of the default headers that requests would use
