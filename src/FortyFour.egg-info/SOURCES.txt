@@ -20,7 +20,10 @@ src/FortyFour.egg-info/top_level.txt
 src/FortyFour/Finance/.DS_Store
 src/FortyFour/Finance/__init__.py
 src/FortyFour/Finance/company.py
+src/FortyFour/Finance/company_v2.py
+src/FortyFour/Finance/company_v3.py
 src/FortyFour/Finance/etf.py
+src/FortyFour/Finance/gaap_synonyms.py
 src/FortyFour/Finance/utils.py
 src/FortyFour/Finance/__pycache__/__init__.cpython-310.pyc
 src/FortyFour/Finance/__pycache__/company.cpython-310.pyc

@@ -419,3 +419,8 @@ class CSSColorPalette(StrEnum):
     WHITESMOKE = "whitesmoke"
     YELLOW = "yellow"
     YELLOWGREEN = "yellowgreen"
+
+
+print(FoliumColorPalette.ACCENT)
+print(PlotlyColorPalette.AMP)
+print(CSSColorPalette.AQUA)
