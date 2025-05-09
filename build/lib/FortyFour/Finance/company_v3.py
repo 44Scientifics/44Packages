@@ -235,6 +235,9 @@ class Company:
         # Rename columns for clarity
         df.rename(columns={'val': gaap_concept.value[0], 'end': 'Date'}, errors="ignore", inplace=True)
         df.drop(columns=["start", "fy","fp","frame"], inplace=True, errors="ignore")
+        
+        # Set index to Date
+        df.set_index("Date", inplace=True)
         return df
 
 
