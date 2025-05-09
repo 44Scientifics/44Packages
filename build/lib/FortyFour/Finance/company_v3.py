@@ -238,12 +238,20 @@ class Company:
         
         # Set index to Date
         df.set_index("Date", inplace=True)
+        # remove duplicates based on the date
+        df = df.loc[~df.index.duplicated(keep='last')]
+        # drop duplicates based on the date
+        df = df.loc[~df.index.duplicated(keep='last')]
+        # resample to end of year
+        if filings_type == "10-K":
+            df = df.resample("Y").last()
+       
         return df
 
 
 if __name__ == "__main__":
     # Create a Company instance
-    apple_cik = 1707925
+    apple_cik = 731766
 
     company = Company(cik=apple_cik, name="Apple Inc.")
     # Example CIK for Apple Inc.
