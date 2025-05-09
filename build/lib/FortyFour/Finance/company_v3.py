@@ -53,6 +53,10 @@ class GAAP(Enum):
         'DepreciationAndAmortization', 'DepreciationDepletionAndAmortization',
         'DepreciationAndAmortizationExcludingNuclearFuel'
     ])
+    DIVIDEND_PER_SHARE = ("DividendPerShare", [
+        "CommonStockDividendsPerShareCashPaid", 
+        "CommonStockDividendsPerShareDeclared", "DividendsRecognisedAsDistributionsToOwnersPerShare"])
+    
     EARNINGS_PER_SHARE_DILUTED = ("EarningsPerShareDiluted", ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"])
     
     EFFECTIVE_INCOME_TAX_RATE_CONTINUING_OPERATIONS = ("EffectiveIncomeTaxRateContinuingOperations", ['EffectiveIncomeTaxRateContinuingOperations'])
@@ -86,6 +90,10 @@ class GAAP(Enum):
         "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
         "IncomeLossFromOperationsBeforeIncomeTaxExpenseBenefit"
     ])
+    PAYMENT_OF_DIVIDENDS = ("PaymentOfDividends", ["PaymentsOfDividendsCommonStock", "PaymentsOfDividends", 'PaymentsOfOrdinaryDividends',
+                    'DividendsPaidToEquityHoldersOfParentClassifiedAsFinancingActivities',
+                    'DividendsPaidClassifiedAsFinancingActivities'])
+    
     PROPERTY_PLANT_AND_EQUIPMENT_GROSS = ("PropertyPlantAndEquipmentGross", [
         "PropertyPlantAndEquipmentGross", "RealEstateInvestmentPropertyAtCost",
         "GrossInvestmentInRealEstateAssets", 'PropertyPlantAndEquipment'
