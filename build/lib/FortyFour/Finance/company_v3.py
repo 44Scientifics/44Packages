@@ -240,13 +240,13 @@ class Company:
 
 if __name__ == "__main__":
     # Create a Company instance
-    apple_cik = 1141391
+    apple_cik = 1730168
 
     company = Company(cik=apple_cik, name="Apple Inc.")
     # Example CIK for Apple Inc.
-    capex_df = company.get_financial(gaap_concept=GAAP.CAPEX, filings_type="10-K")
-    cash_df = company.get_financial(gaap_concept=GAAP.CASH_CASH_EQUIVALENTS, filings_type="10-K")
+    capex_df = company.get_financial(gaap_concept=GAAP.DIVIDEND_PER_SHARE, filings_type="10-K")
+    cash_df = company.get_financial(gaap_concept=GAAP.PAYMENT_OF_DIVIDENDS, filings_type="10-K")
     print(capex_df)
-    print("" * 20)
+    print("*" * 20)
     print(cash_df)
     
