@@ -55,8 +55,8 @@ class GAAP(Enum):
         'DepreciationAndAmortizationExcludingNuclearFuel'
     ])
     DIVIDEND_PER_SHARE = ("DividendPerShare", [
-        "CommonStockDividendsPerShareCashPaid", "DividendPerShare"
-        "CommonStockDividendsPerShareDeclared", "DividendsRecognisedAsDistributionsToOwnersPerShare"
+        "CommonStockDividendsPerShareCashPaid", "CommonStockDividendsPerShareDeclared",
+        "DividendsRecognisedAsDistributionsToOwnersPerShare"
     ])
     
     EARNINGS_PER_SHARE_DILUTED = ("EarningsPerShareDiluted", ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"])
@@ -143,60 +143,58 @@ class Company:
         self.name = name
 
         # request the company filing data
-        headers = {
-        'User-Agent': 'My User Agent 1.0', # It's good practice to identify your client
-        'accept': 'application/json'
-        }
-        url = f"https://data.sec.gov/api/xbrl/companyfacts/{self.cik}.json"
-        response = requests.get(url, headers=headers)
-        response.raise_for_status() # Raise an exception for HTTP errors
-        self.filing_data = response.json()
+        try:
+            self.filing_data = request_company_filing(self.cik)
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to fetch initial data for CIK {self.cik} during initialization: {e}")
+            self.filing_data = None # Or handle more gracefully, e.g., raise exception
 
 
 
 
     def get_financial(self, gaap_concept: GAAP, filings_type: str ="10-Q") -> pd.DataFrame:
         
-        cik = self.cik
+        # Use the data fetched during initialization
+        if self.filing_data is None:
+            print(f"Filing data for CIK {self.cik} is not available. Please check the initialization.")
+            logging.error(f"No filing data available for CIK {self.cik}, possibly due to an earlier fetch failure.")
+            return pd.DataFrame()
+        
+        data = self.filing_data # Use pre-fetched data
 
-        try:
-            data = request_company_filing(cik)
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Failed to fetch data for CIK {cik}: {e}")
-            return pd.DataFrame() # Return empty DataFrame on error
         
         canonical_name = gaap_concept.value[0]
         synonyms = gaap_concept.value[1]
         
         collected_entries = []
-        # Check canonical name first
-        if data.get("facts") and data["facts"].get("us-gaap") and canonical_name in data["facts"]["us-gaap"]:
-            if "units" in data["facts"]["us-gaap"][canonical_name] and "USD" in data["facts"]["us-gaap"][canonical_name]["units"]:
-                for entry in data["facts"]["us-gaap"][canonical_name]["units"]["USD"]:
-                    entry_copy = entry.copy() 
-                    entry_copy['source_key'] = canonical_name 
-                    entry_copy['is_canonical'] = True
-                    collected_entries.append(entry_copy)
-
-        # Then check synonyms
-        for key in synonyms:
-            if data.get("facts") and data["facts"].get("us-gaap") and key in data["facts"]["us-gaap"]:
-                if "units" in data["facts"]["us-gaap"][key] and "USD" in data["facts"]["us-gaap"][key]["units"]:
-                    for entry in data["facts"]["us-gaap"][key]["units"]["USD"]:
-                        entry_copy = entry.copy()
-                        entry_copy['source_key'] = key
-                        entry_copy['is_canonical'] = False
-                        collected_entries.append(entry_copy)
+        
+                    
+        # Iterate over all fact types (e.g., 'us-gaap', 'dei', 'invest', 'srt')
+        if data.get("facts"):
+            for fact_type in data["facts"].keys():
+        
+                # Then check synonyms
+                for key in synonyms:
+                    if data["facts"][fact_type] and key in data["facts"][fact_type]:
+                        if "units" in data["facts"][fact_type][key]:
+                            for unit_name in data["facts"][fact_type][key]["units"]:
+                                for entry in data["facts"][fact_type][key]["units"][unit_name]:
+                                    entry_copy = entry.copy()
+                                    entry_copy['source_key'] = key
+                                    entry_copy['unit'] = unit_name
+                                    #entry_copy['is_canonical'] = False
+                                    entry_copy['fact_type'] = fact_type
+                                    collected_entries.append(entry_copy)
 
         if not collected_entries:
-            logging.info(f"No data found for {gaap_concept.name} for CIK {cik} using specified keys.")
+            logging.info(f"No data found for {gaap_concept.name} for CIK {self.cik} using specified keys.")
             return pd.DataFrame()
 
         # Filter by the specified filings type
         filtered_by_form = [entry for entry in collected_entries if entry.get("form") == filings_type]
 
         if not filtered_by_form:
-            logging.info(f"No data found for {gaap_concept.name} for CIK {cik} with form type {filings_type}.")
+            logging.info(f"No data found for {gaap_concept.name} for CIK {self.cik} with form type {filings_type}.")
             return pd.DataFrame()
             
         # Sort entries to prepare for deduplication.
@@ -225,7 +223,7 @@ class Company:
                 seen_unique_key.add(unique_key)
                 
         if not deduplicated_entries:
-            logging.info(f"No unique data entries found after processing for {gaap_concept.name} for CIK {cik} with form type {filings_type}.")
+            logging.info(f"No unique data entries found after processing for {gaap_concept.name} for CIK {self.cik} with form type {filings_type}.")
             return pd.DataFrame()
 
         df = pd.DataFrame(deduplicated_entries)
@@ -236,19 +234,18 @@ class Company:
         df = df.sort_values(by="end").reset_index(drop=True)
         # Rename columns for clarity
         df.rename(columns={'val': gaap_concept.value[0], 'end': 'Date'}, errors="ignore", inplace=True)
-        
+        df.drop(columns=["start", "fy","fp","frame"], inplace=True, errors="ignore")
         return df
 
 
 if __name__ == "__main__":
     # Create a Company instance
-    apple_cik = 1730168
+    apple_cik = 1707925
 
     company = Company(cik=apple_cik, name="Apple Inc.")
     # Example CIK for Apple Inc.
     capex_df = company.get_financial(gaap_concept=GAAP.DIVIDEND_PER_SHARE, filings_type="10-K")
-    cash_df = company.get_financial(gaap_concept=GAAP.PAYMENT_OF_DIVIDENDS, filings_type="10-K")
+    cash_df = company.get_financial(gaap_concept=GAAP.COMMON_STOCK_SHARES_OUTSTANDING, filings_type="10-Q")
     print(capex_df)
     print("*" * 20)
     print(cash_df)
-    
