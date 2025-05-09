@@ -238,13 +238,13 @@ class Company:
         
         # Set index to Date
         df.set_index("Date", inplace=True)
-        # remove duplicates based on the date
-        df = df.loc[~df.index.duplicated(keep='last')]
+        # remove duplicates based on the accn, keep the last one
+        df.drop_duplicates(subset=["accn"], inplace=True)
+        
+        
         # drop duplicates based on the date
-        df = df.loc[~df.index.duplicated(keep='last')]
-        # resample to end of year
-        if filings_type == "10-K":
-            df = df.resample("Y").last()
+        
+        
        
         return df
 
@@ -256,7 +256,7 @@ if __name__ == "__main__":
     company = Company(cik=apple_cik, name="Apple Inc.")
     # Example CIK for Apple Inc.
     capex_df = company.get_financial(gaap_concept=GAAP.DIVIDEND_PER_SHARE, filings_type="10-K")
-    cash_df = company.get_financial(gaap_concept=GAAP.COMMON_STOCK_SHARES_OUTSTANDING, filings_type="10-Q")
+    cash_df = company.get_financial(gaap_concept=GAAP.COMMON_STOCK_SHARES_OUTSTANDING, filings_type="10-K")
     print(capex_df)
     print("*" * 20)
     print(cash_df)
