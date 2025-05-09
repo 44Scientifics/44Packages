@@ -7,13 +7,14 @@ import logging
 import re
 from enum import Enum
 
-from typing import List, Tuple, Optional
+
 
 class GAAP(Enum):
     """
     Enumeration of GAAP concepts, each holding its canonical name and a list of synonyms.
     """
     ASSETS = ("Assets", ["Assets"])
+
     ASSETS_CURRENT = ("AssetsCurrent", ["AssetsCurrent"])
     CAPEX = ("Capex", [
         'PaymentsToAcquirePropertyPlantAndEquipment', "PaymentsToAcquireOtherPropertyPlantAndEquipment",
@@ -54,8 +55,9 @@ class GAAP(Enum):
         'DepreciationAndAmortizationExcludingNuclearFuel'
     ])
     DIVIDEND_PER_SHARE = ("DividendPerShare", [
-        "CommonStockDividendsPerShareCashPaid", 
-        "CommonStockDividendsPerShareDeclared", "DividendsRecognisedAsDistributionsToOwnersPerShare"])
+        "CommonStockDividendsPerShareCashPaid", "DividendPerShare"
+        "CommonStockDividendsPerShareDeclared", "DividendsRecognisedAsDistributionsToOwnersPerShare"
+    ])
     
     EARNINGS_PER_SHARE_DILUTED = ("EarningsPerShareDiluted", ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"])
     
@@ -90,7 +92,7 @@ class GAAP(Enum):
         "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
         "IncomeLossFromOperationsBeforeIncomeTaxExpenseBenefit"
     ])
-    PAYMENT_OF_DIVIDENDS = ("PaymentOfDividends", ["PaymentsOfDividendsCommonStock", "PaymentsOfDividends", 'PaymentsOfOrdinaryDividends',
+    PAYMENT_OF_DIVIDENDS = ("PaymentsOfDividends", ["PaymentsOfDividendsCommonStock", "PaymentsOfDividends", 'PaymentsOfOrdinaryDividends',
                     'DividendsPaidToEquityHoldersOfParentClassifiedAsFinancingActivities',
                     'DividendsPaidClassifiedAsFinancingActivities'])
     
