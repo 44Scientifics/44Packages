@@ -45,9 +45,16 @@ class GAAP(Enum):
     ])
     COMMON_STOCK_SHARES_OUTSTANDING = ("CommonStockSharesOutstanding", [
         'WeightedAverageNumberOfDilutedSharesOutstanding', 'CommonStockSharesIssued',
-        'EntityCommonStockSharesOutstanding', 'WeightedAverageNumberOfSharesOutstandingDiluted',
+        'EntityCommonStockSharesOutstanding', 
+        'WeightedAverageNumberOfSharesOutstandingDiluted',
         'WeightedAverageSharesOutstandingDiluted', 'CommonStockSharesOutstanding'
     ])
+    PAYMENT_FOR_SHARE_BUYBACKS = ("ShareBuybacks", [
+        'PaymentsForRepurchaseOfCommonStock', 'PaymentsForRepurchaseOfCommonStockIncludingDisposalGroupAndDiscontinuedOperations',
+        'PaymentsForRepurchaseOfCommonStockIncludingDisposalGroup', 'PaymentsForRepurchaseOfCommonStockExcludingDisposalGroup',
+        'PaymentsForRepurchaseOfCommonStockExcludingDiscontinuedOperations'
+    ])
+    
     COST_OF_GOODS_AND_SERVICES_SOLD = ("CostOfGoodsAndServicesSold", ['CostOfGoodsAndServicesSold', 'CostOfRevenue'])
     
     DEPRECIATION_AND_AMORTIZATION = ("DepreciationAndAmortization", [
@@ -231,7 +238,7 @@ class Company:
         #df = df[["end", "val", "accn", "form","", "source_key", "is_canonical"]]
         df["end"] = pd.to_datetime(df["end"], format="%Y-%m-%d", errors='coerce')
         # Final sort by end date for presentation
-        df = df.sort_values(by="end").reset_index(drop=True)
+        df = df.sort_values(by=["end", "val"]).reset_index(drop=True)
         # Rename columns for clarity
         df.rename(columns={'val': gaap_concept.value[0], 'end': 'Date'}, errors="ignore", inplace=True)
         df.drop(columns=["start", "fy","fp","frame"], inplace=True, errors="ignore")
@@ -239,7 +246,7 @@ class Company:
         # Set index to Date
         df.set_index("Date", inplace=True)
         # remove duplicates based on the accn, keep the last one
-        df.drop_duplicates(subset=["accn"], inplace=True)
+        df.drop_duplicates(subset=["accn"],keep="last", inplace=True)
         
         
         # drop duplicates based on the date
@@ -251,12 +258,12 @@ class Company:
 
 if __name__ == "__main__":
     # Create a Company instance
-    apple_cik = 731766
+    apple_cik = 789019
 
     company = Company(cik=apple_cik, name="Apple Inc.")
     # Example CIK for Apple Inc.
     capex_df = company.get_financial(gaap_concept=GAAP.DIVIDEND_PER_SHARE, filings_type="10-K")
     cash_df = company.get_financial(gaap_concept=GAAP.COMMON_STOCK_SHARES_OUTSTANDING, filings_type="10-K")
-    print(capex_df)
+    #print(capex_df)
     print("*" * 20)
     print(cash_df)
