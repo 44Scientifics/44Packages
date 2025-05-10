@@ -244,7 +244,7 @@ class Company:
         df.drop(columns=["start", "fy","fp","frame"], inplace=True, errors="ignore")
         
         # Set index to Date
-        df.set_index("Date", inplace=True)
+        #df.set_index("Date", inplace=True)
         # remove duplicates based on the accn, keep the last one
         df.drop_duplicates(subset=["accn"],keep="last", inplace=True)
         
