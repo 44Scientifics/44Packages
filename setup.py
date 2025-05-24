@@ -9,7 +9,7 @@ with open("requirements.txt", "r") as fh:
 
 setup(
     name="FortyFour",
-    version="2025.05.23",
+    version="2025.05.24",
     description="This package puts together all the tools I have created",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
