@@ -44,7 +44,7 @@ executing==2.2.0
 fastjsonschema==2.21.1
 fiona==1.9.6
 fonttools==4.49.0
--e git+https://github.com/44Scientifics/44Packages.git@8bdf81c11c89035e0ef36482e8d68b512f15dc68#egg=FortyFour
+-e git+https://github.com/44Scientifics/44Packages.git@193dce916fa913b90a3b142b0da8a53396937d00#egg=FortyFour
 frozendict==2.4.4
 frozenlist==1.6.0
 geopandas==0.14.3
@@ -111,7 +111,6 @@ pydeck==0.8.1b0
 pyee==12.1.1
 pyflakes==3.3.2
 Pygments==2.17.2
-pymongo==4.6.2
 pyparsing==3.1.2
 pyproj==3.6.1
 python-dateutil==2.9.0
