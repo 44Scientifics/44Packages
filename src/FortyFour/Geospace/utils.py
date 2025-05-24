@@ -1,5 +1,5 @@
 import geopandas as gpd
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Polygon
 import pandas as pd
 
 def create_polygon_from_point_list(df:pd.DataFrame, crs:int, convert_to_latlon:bool=True) -> gpd.GeoDataFrame:

@@ -89,6 +89,16 @@ def request_company_filing(cik: str) -> json:
     response = requests.get(url, headers=headers)
     return response.json()
 
+def calculate_cagr(df: pd.Series, periods: int):
+    if len(df) < 2:
+        return 0
+    start_value = df.iloc[-periods-1]
+    if start_value == 0:
+        return 0
+    end_value = df.iloc[-1]
+    cagr = (end_value / start_value) ** (1 / periods)-1
+    return round(cagr*100,2)
+
 
 if __name__ == "__main__":
     print(get_all_cik())

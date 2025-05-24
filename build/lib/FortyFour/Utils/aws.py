@@ -1,8 +1,5 @@
-import os
 import boto3
-from dotenv import load_dotenv
 
-load_dotenv()
 
 
 def upload_to_s3(file_object, bucket_name: str, file_name: str, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):

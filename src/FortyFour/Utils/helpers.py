@@ -2,7 +2,7 @@ import numpy as np
 from dateutil.parser import parse
 from datetime import datetime
 import logging
-from typing import List, Dict, Callable, Any, Optional
+from typing import List, Dict, Any, Optional
 
 
 def serialize_date_in_dict(my_dict: dict):
@@ -51,7 +51,6 @@ def convert_string_to_date_in_dict(my_dict: dict):
             my_dict[key] = datetime.combine(my_dict[key], datetime.min.time())
         except Exception as e:
             logging.warning('The function convert_string_to_date_in_dict(my_dict) encounter an exeption: ', e)
-            pass
     return my_dict
 
 

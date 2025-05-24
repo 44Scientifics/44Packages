@@ -1,6 +1,4 @@
-from typing import List, Optional, Dict, Any
 from enum import Enum
-from typing import List, Tuple, Optional
 
 
 # This file contains a dictionary of GAAP concepts and their synonyms.

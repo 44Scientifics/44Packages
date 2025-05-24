@@ -1,6 +1,5 @@
 import logging
 
-import requests
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -131,7 +130,6 @@ class Company:
                     case _:
                         df.drop(["frame"], axis=1, inplace=True)
                         df_list_to_merge.append(df)
-                        pass
                 # df.set_index('Date', inplace=True)
             else:
                 pass

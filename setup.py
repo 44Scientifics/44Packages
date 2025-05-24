@@ -1,8 +1,15 @@
 from setuptools import find_packages, setup
 
+
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+with open("requirements.txt", "r") as fh:
+    install_requires = fh.read().splitlines()
+
 setup(
     name="FortyFour",
-    version="2025.05.08-2",
+    version="2025.05.24",
     description="This package puts together all the tools I have created",
     package_dir={"": "src"},
     packages=find_packages(where="src"),

@@ -1,4 +1,4 @@
-from enum import Enum, StrEnum, IntEnum, auto
+from enum import StrEnum
 
 class FoliumColorPalette(StrEnum):
     ACCENT = 'Accent'
