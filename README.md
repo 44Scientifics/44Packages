@@ -1,15 +1,19 @@
-<!-- filepath: /Users/checomart/Dropbox/GitHub/Python Libraries/44Packages/README.md -->
 # FortyFour
 
-This package puts together all the tools I have created.
+A comprehensive Python library for financial analysis and general utilities, designed for high-performance batch processing and complex metric calculation.
 
 ## Description
 
-`FortyFour` is a Python library containing reusable code modules for various tasks, including Finance, Geospace, and general utilities.
+`FortyFour` provides a decoupled, cache-first architecture for interacting with SEC EDGAR data. It features a **Metric Engine** that allows analysts to define declarative formulas for financial metrics, which the engine then calculates by automatically searching through SEC XBRL synonyms and aligning time-series data.
+
+## Key Features
+
+- **Local Persistence**: SQLite-backed `SECCache` to store raw SEC JSON responses, ensuring high speed and compliance with SEC rate limits.
+- **Metric Engine**: De-coupled calculation logic using `MetricRegistry` and `MetricEngine`.
+- **Flexible Synonyms**: Formulas define priority lists of SEC tags to handle inconsistent reporting across companies.
+- **Lazy Loading**: Data is only fetched from the cache or API when a specific fact or metric is requested.
 
 ## Installation
-
-To install the package, you can clone the repository and install it using pip:
 
 ```bash
 git clone https://github.com/44Scientifics/44Packages.git
@@ -17,70 +21,62 @@ cd 44Packages
 pip install .
 ```
 
-Alternatively, if the package is hosted on PyPI, you might be able to install it directly:
-```bash
-pip install FortyFour
+## Quick Start (Finance)
+
+```python
+import pandas as pd
+from FortyFour.Finance import Company, SECCache, MetricRegistry, MetricEngine
+
+# 1. Initialize Cache and Registry
+cache = SECCache(db_path="my_finance_cache.sqlite")
+registry = MetricRegistry()
+
+# 2. Define a custom Formula
+registry.register(
+    "Gross Margin",
+    components={
+        "rev": ["Revenues", "SalesRevenueNet"],
+        "cogs": ["CostOfGoodsAndServicesSold", "CostOfRevenue"]
+    },
+    formula=lambda rev, cogs: (rev - cogs) / rev
+)
+
+# 3. Calculate for a Company
+engine = MetricEngine(registry=registry)
+apple = Company(cik="0000320193", name="Apple Inc.", cache=cache)
+
+gross_margin = engine.calculate(apple, "Gross Margin", filings_type="10-K")
+print(gross_margin.tail())
 ```
-(Please verify if the package is available on PyPI and update this instruction accordingly.)
 
 ## Modules
 
-The package is organized into the following main modules:
+### `FortyFour.Finance`
+- `company.py`: Lightweight `Company` class for data retrieval and lazy loading.
+- `engine.py`: `MetricEngine` and `MetricRegistry` for formula execution.
+- `utils.py`: `SECCache`, SEC API interaction, and financial helpers (e.g., CAGR).
+- `etf.py`: Tools for working with Exchange Traded Funds.
 
-*   **`FortyFour.Finance`**: Contains tools and utilities related to financial analysis.
-    *   `company.py`: Likely contains classes/functions for company-related financial data.
-    *   `company_v3.py`: Potentially a newer version or extension of `company.py`.
-    *   `etf.py`: Tools for working with Exchange Traded Funds.
-    *   `utils.py`: Utility functions specific to the Finance module.
-*   **`FortyFour.Geospace`**: Includes tools for geospatial data and operations.
-    *   `utils.py`: Utility functions specific to the Geospace module.
-*   **`FortyFour.Utils`**: Provides general utility functions.
-    *   `aws.py`: Helper functions for interacting with AWS services.
-    *   `colors.py`: Utilities for color manipulation or colored terminal output.
-    *   `helpers.py`: General helper functions.
+### `FortyFour.Utils`
+- `aws.py`: Helpers for AWS S3 interaction.
+- `colors.py`: Terminal output color utilities.
+- `helpers.py`: General dictionary and date manipulation.
 
 ## Dependencies
 
-The main dependencies for this project are listed in `requirements.txt` and include:
-
-```
-boto3==1.38.23
-botocore==1.38.23
-certifi==2025.4.26
-charset-normalizer==3.4.2
-colorclass==2.2.2
-docopt==0.6.2
-idna==3.10
-jmespath==1.0.1
-narwhals==1.40.0
-numpy==2.2.6
-packaging==25.0
-pandas==2.2.3
-pip-upgrader==1.4.15
-plotly==6.1.1
-python-dateutil==2.9.0.post0
-pytz==2025.2
-requests==2.32.3
-s3transfer==0.13.0
-setuptools==80.8.0
-six==1.17.0
-terminaltables==3.1.10
-tzdata==2025.2
-urllib3==2.4.0
-```
+- `pandas`: Data manipulation and time-series alignment.
+- `requests`: SEC API interaction.
+- `sqlite3`: Local data persistence.
+- `plotly`: Financial visualization.
 
 ## Author
 
 44 SCIENTIFICS LTD (44scientifics@gmail.com)
 
-## Repository
-
-[https://github.com/44Scientifics/44Packages.git](https://github.com/44Scientifics/44Packages.git)
-
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a pull request or open an issue if you have suggestions or find bugs.
+Contributions are welcome! Please submit a pull request or open an issue for suggestions or bugs.
 
 ## License
 
-Please specify a license for your project (e.g., MIT, Apache 2.0). You can add a `LICENSE` file to your repository and update this section.
+MIT License (recommended)
