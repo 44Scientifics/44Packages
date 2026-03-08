@@ -125,7 +125,7 @@ def get_company_logo_url(name):
     return "https://placehold.co/600x400?text=Logo"
 
 
-def request_company_filing(cik: str) -> dict:
+def request_company_filing(cik: str, cache: SECCache = None) -> dict:
     """
     Fetch company facts from SEC EDGAR API for a given CIK.
     """
@@ -134,12 +134,20 @@ def request_company_filing(cik: str) -> dict:
     if not cik_str.startswith("CIK"):
         cik_str = f"CIK{cik_str}"
         
+    if cache:
+        cached_data = cache.get(cik_str)
+        if cached_data:
+            return cached_data
+            
     url = f"https://data.sec.gov/api/xbrl/companyfacts/{cik_str}.json"
     try:
         response = requests.get(url, headers=DEFAULT_HEADERS, timeout=10)
         response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
+        data = response.json()
+        if cache:
+            cache.store(cik_str, data)
+        return data
+    except Exception as e:
         logging.error(f"Failed to fetch filing data for {cik_str}: {e}")
         return {}
 
