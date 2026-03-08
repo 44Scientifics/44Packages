@@ -5,16 +5,61 @@ import pandas as pd
 import plotly.express as px
 import logging
 import re
+import sqlite3
+import time
+
+# SEC EDGAR requires a User-Agent that identifies the user (Name and Email)
+DEFAULT_HEADERS = {
+    'User-Agent': "FortyFour Scientifics (admin@fortyfour.com)",
+    'Accept': 'application/json'
+}
+
+class SECCache:
+    """
+    A SQLite-backed cache for SEC EDGAR company facts.
+    """
+    def __init__(self, db_path="sec_data.db"):
+        self.db_path = db_path
+        self._init_db()
+
+    def _init_db(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS sec_cache (
+                    cik TEXT PRIMARY KEY,
+                    data TEXT,
+                    last_updated REAL
+                )
+            """)
+
+    def get(self, cik, max_age_days=1):
+        """
+        Retrieve cached data for a CIK if it's within the max age.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT data, last_updated FROM sec_cache WHERE cik = ?", (cik,))
+            row = cursor.fetchone()
+            if row:
+                data_str, last_updated = row
+                if (time.time() - last_updated) / 86400 <= max_age_days:
+                    return json.loads(data_str)
+        return None
+
+    def store(self, cik, data):
+        """
+        Store data in the cache for a CIK.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO sec_cache (cik, data, last_updated) VALUES (?, ?, ?)",
+                (cik, json.dumps(data), time.time())
+            )
 
 @cache
 def get_all_cik():
-    headers = {
-        'User-Agent': "Mozilla/5.0 (compatible; SEC-DataFetcher/1.0)",
-        'Accept': 'application/json'
-    }
     url = "https://www.sec.gov/files/company_tickers.json"
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=10)
         response.raise_for_status()
         data = response.json()
         df = pd.DataFrame.from_dict(data, orient='index')
@@ -27,11 +72,13 @@ def get_all_cik():
 
 
 def create_spark_line(data, _height: int = 100, _width: int = 250):
-    df = None
-    if not isinstance(data, pd.DataFrame):
+    """
+    Creates and shows a Plotly sparkline for the given data.
+    """
+    if isinstance(data, pd.DataFrame):
+        df = data
+    else:
         df = pd.DataFrame(data)
-
-    df = data
 
     fig = px.area(df, height=_height, width=_width)
 
@@ -68,7 +115,9 @@ def get_company_logo_url(name):
     clean_name = '-'.join(name.split())
     logo_url = f"{base_url}{clean_name}--big.svg"
     try:
-        resp = requests.head(logo_url, timeout=2)
+        # Using a browser-like User-Agent for logos might be better
+        logo_headers = {'User-Agent': 'Mozilla/5.0'}
+        resp = requests.head(logo_url, headers=logo_headers, timeout=2)
         if resp.status_code == 200:
             return logo_url
     except Exception:
@@ -76,32 +125,47 @@ def get_company_logo_url(name):
     return "https://placehold.co/600x400?text=Logo"
 
 
-def request_company_filing(cik: str) -> json:
-    # Get a copy of the default headers that requests would use
-    #headers = requests.utils.default_headers()  # type: ignore
-    # headers.update({'User-Agent': 'My User Agent 1.0', })  # type: ignore
-
-    headers = {
-        'User-Agent': 'My User Agent 1.0',
-        'accept': 'application/json'
-    }
-    url = f"https://data.sec.gov/api/xbrl/companyfacts/{cik}.json"
-    response = requests.get(url, headers=headers)
-    return response.json()
+def request_company_filing(cik: str) -> dict:
+    """
+    Fetch company facts from SEC EDGAR API for a given CIK.
+    """
+    # Ensure CIK is correctly formatted
+    cik_str = str(cik).zfill(10)
+    if not cik_str.startswith("CIK"):
+        cik_str = f"CIK{cik_str}"
+        
+    url = f"https://data.sec.gov/api/xbrl/companyfacts/{cik_str}.json"
+    try:
+        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to fetch filing data for {cik_str}: {e}")
+        return {}
 
 def calculate_cagr(df: pd.Series, periods: int):
-    if len(df) < 2:
+    """
+    Calculate the Compound Annual Growth Rate over the given number of periods.
+    """
+    if len(df) < periods + 1:
+        logging.warning(f"Insufficient data to calculate CAGR over {periods} periods (only {len(df)} points available)")
         return 0
+    
     start_value = df.iloc[-periods-1]
-    if start_value == 0:
-        return 0
     end_value = df.iloc[-1]
-    cagr = (end_value / start_value) ** (1 / periods)-1
-    return round(cagr*100,2)
+    
+    if start_value <= 0 or end_value <= 0:
+        return 0
+        
+    cagr = (end_value / start_value) ** (1 / periods) - 1
+    return round(cagr * 100, 2)
 
 
 if __name__ == "__main__":
-    print(get_all_cik())
-    response = request_company_filing("CIK0000320193")
-    accounting_norm_list = [x for x in [*response["facts"].keys()] if x not in ["srt", "invest", "dei"]]
-    print(accounting_norm_list)
+    print(get_all_cik().head())
+    response = request_company_filing("0000320193")
+    if response and "facts" in response:
+        accounting_norm_list = [x for x in response["facts"].keys() if x not in ["srt", "invest", "dei"]]
+        print(f"Available fact types: {accounting_norm_list}")
+    else:
+        print("Failed to fetch data.")
