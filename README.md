@@ -30,6 +30,44 @@ pip install .
 
 The `FortyFour.Finance` module is built on a four-tier architecture designed for scalability and analytical depth.
 
+## 🧾 Reusable Accounting Package
+
+The reusable accounting code now lives under `FortyFour.accounting` and is split into three layers:
+
+- `FortyFour.accounting.core`: pure accounting logic, snapshot dataclasses, and statement builders with no SQLAlchemy dependency.
+- `FortyFour.accounting.sqlalchemy_adapter`: a thin SQLAlchemy adapter for applications that provide compatible ORM models.
+- `FortyFour.accounting.engine`: the public accounting engine facade for SQLAlchemy-backed projects.
+
+The old `FortyFour.Finance.accounting_engine` path has been removed. Use `FortyFour.accounting` directly.
+
+### Accounting Usage
+
+Prefer importing the public facade from the accounting package:
+
+```python
+from FortyFour.accounting import generate_trial_balance, generate_cash_flow_statement
+
+trial_balance = generate_trial_balance(db, company_id)
+cash_flow = generate_cash_flow_statement(db, company_id)
+```
+
+If you want the explicit module boundary, import the facade module itself:
+
+```python
+from FortyFour.accounting import engine
+
+trial_balance = engine.generate_trial_balance(db, company_id)
+cash_flow = engine.generate_cash_flow_statement(db, company_id)
+```
+
+If you only need the pure reusable logic, import directly from the core module:
+
+```python
+from FortyFour.accounting.core import build_cash_flow_statement, validate_journal_entry_lines
+```
+
+For the full accounting module guide and more examples, see [src/FortyFour/accounting/README.md](src/FortyFour/accounting/README.md).
+
 ### 1. The Persistence Tier (`SECCache`)
 The `SECCache` is the heart of the library's performance. It manages a local SQLite database that stores the full "Company Facts" JSON response from the SEC.
 

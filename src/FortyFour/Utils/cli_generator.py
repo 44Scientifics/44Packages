@@ -1,6 +1,7 @@
 import json
 import os
 import httpx
+import shutil
 from typing import Dict, List, Any, Optional
 
 class OpenAPICLIGenerator:
@@ -13,12 +14,14 @@ class OpenAPICLIGenerator:
         openapi_url: Optional[str] = None,
         base_url: Optional[str] = None,
         excluded_tags: Optional[List[str]] = None,
-        commands_dir: str = "commands"
+        commands_dir: str = "commands",
+        config_module: Optional[str] = "config"
     ):
         self.openapi_url = openapi_url
         self.base_url = base_url
         self.excluded_tags = excluded_tags or ["users", "roles", "profiles", "memberships", "Profiles & Memberships"]
         self.commands_dir = commands_dir
+        self.config_module = config_module
 
     def fetch_openapi(self, url: str) -> Dict[str, Any]:
         """Fetches the OpenAPI JSON specification."""
@@ -68,11 +71,14 @@ class OpenAPICLIGenerator:
             "import json",
             "import sys",
             "",
-            f"app = typer.Typer(help='Manage CRUD Operations for {tag}')",
-            f"BASE_URL = '{base_url}'",
-            "TIMEOUT = 30",
-            ""
+            f"app = typer.Typer(help='Manage CRUD Operations for {tag}')"
         ]
+        if self.config_module:
+            code.append(f"from {self.config_module} import BASE_URL, TIMEOUT")
+        else:
+            code.append(f"BASE_URL = '{base_url}'")
+            code.append("TIMEOUT = 30")
+        code.append("")
 
         for op in operations:
             path = op["path"]
@@ -158,7 +164,7 @@ class OpenAPICLIGenerator:
             
         return "\n".join(code)
 
-    def run(self, openapi_url: Optional[str] = None, base_url: Optional[str] = None, output_dir: Optional[str] = None):
+    def run(self, openapi_url: Optional[str] = None, base_url: Optional[str] = None, output_dir: Optional[str] = None, clean: bool = True):
         """Executes the generation process."""
         active_openapi = openapi_url or self.openapi_url
         active_base = base_url or self.base_url
@@ -174,6 +180,10 @@ class OpenAPICLIGenerator:
         target_dir = output_dir or os.getcwd()
         commands_full_path = os.path.join(target_dir, self.commands_dir)
         
+        if clean and os.path.exists(commands_full_path):
+            print(f"Cleaning directory: {commands_full_path}")
+            shutil.rmtree(commands_full_path)
+            
         print(f"Fetching OpenAPI spec from {active_openapi}...")
         spec = self.fetch_openapi(active_openapi)
         
@@ -222,6 +232,10 @@ class OpenAPICLIGenerator:
             "import typer",
             "import importlib",
             "import os",
+            "import sys",
+            "",
+            "# Ensure the root directory is in the path so config can be imported from submodules",
+            "sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))",
             "",
             "app = typer.Typer(help='CLI generated from OpenAPI')",
             ""

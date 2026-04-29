@@ -1,4 +1,16 @@
+import os
+from datetime import datetime
+
 from setuptools import find_packages, setup
+
+
+def build_version() -> str:
+    version = os.environ.get("FORTYFOUR_VERSION")
+    if version:
+        return version
+
+    today = datetime.now()
+    return f"{today.year}.{today.month}.{today.day}"
 
 
 with open("README.md", "r") as fh:
@@ -9,7 +21,7 @@ with open("requirements.txt", "r") as fh:
 
 setup(
     name="FortyFour",
-    version="2025.05.24",
+    version=build_version(),
     description="This package puts together all the tools I have created",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
