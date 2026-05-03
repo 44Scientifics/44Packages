@@ -10,6 +10,29 @@ This package is split into three layers:
 
 The old `FortyFour.Finance.accounting_engine` path has been removed. Use `FortyFour.accounting` directly.
 
+## Installation
+
+From another project, install the built wheel, install directly from GitHub, or use an editable local install while developing:
+
+```bash
+# Build the package first
+cd /path/to/44Packages
+./build.sh
+
+# Install the generated wheel into another project
+pip install /path/to/44Packages/dist/fortyfour-2026.4.29-py3-none-any.whl
+
+# Install directly from the remote Git repository
+pip install "git+https://github.com/44Scientifics/44Packages.git@main"
+
+# Or, while working locally, install the source tree in editable mode
+pip install -e /path/to/44Packages
+```
+
+If you prefer a pinned revision, replace `main` with a tag or commit SHA.
+
+After installation, import the module with `FortyFour.accounting`.
+
 ## Quick Start
 
 For most users, import the public API directly from the package root:

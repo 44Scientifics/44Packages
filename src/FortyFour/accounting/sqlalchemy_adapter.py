@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from .. import models
+from ..models import _assert_configured
 from .core import (
     AccountSnapshot,
     EntryLineSnapshot,
@@ -17,6 +18,7 @@ from .core import (
     build_cash_flow_statement,
     build_income_statement,
     build_trial_balance,
+    classify_account,
     get_line_value,
     is_treasury_account,
     normalize_account_ids,
@@ -34,6 +36,16 @@ def _to_account_snapshot(account: models.ChartOfAccount) -> AccountSnapshot:
         account_class=getattr(account, "account_class", None),
         normal_balance=getattr(account, "normal_balance", None),
     )
+
+
+def _get_account_index(db: Session, company_id: UUID) -> dict[UUID, models.ChartOfAccount]:
+    """Pre-fetch all accounts for a company to support hierarchical classification."""
+    accounts = (
+        db.query(models.ChartOfAccount)
+        .filter(models.ChartOfAccount.account_owner == company_id)
+        .all()
+    )
+    return {acc.id: acc for acc in accounts}
 
 
 def _to_entry_line_snapshot(line: models.JournalEntryLine) -> EntryLineSnapshot:
@@ -95,6 +107,7 @@ def assert_company_owns_accounts(
     company_id: UUID,
     lines: Sequence,
 ) -> dict[UUID, models.ChartOfAccount]:
+    _assert_configured()
     account_ids = []
     for line in lines:
         account_id = get_line_value(line, "account_id")
@@ -126,6 +139,14 @@ def assert_company_owns_accounts(
     return accounts_by_id
 
 
+def _get_posted_status():
+    """Retrieve the 'posted' status value, favoring the registered Enum if available."""
+    if models.JournalEntryStatus and hasattr(models.JournalEntryStatus, "POSTED"):
+        status = models.JournalEntryStatus.POSTED
+        return status.value if hasattr(status, "value") else status
+    return "posted"
+
+
 def _build_line_query(
     db: Session,
     company_id: UUID,
@@ -136,7 +157,7 @@ def _build_line_query(
         db.query(models.JournalEntryLine)
         .join(models.JournalEntry)
         .filter(models.JournalEntry.company_id == company_id)
-        .filter(models.JournalEntry.status == "posted")
+        .filter(models.JournalEntry.status == _get_posted_status())
     )
 
     if start_date:
@@ -154,6 +175,7 @@ def get_account_balance(
     end_date: datetime | None = None,
     include_children: bool = True,
 ):
+    _assert_configured()
     account = db.query(models.ChartOfAccount).filter(models.ChartOfAccount.id == account_id).first()
     if not account:
         raise ValueError(f"Account not found: {account_id}")
@@ -228,19 +250,32 @@ def _group_posted_lines(
     )
 
     items = []
+    account_index = _get_account_index(db, company_id)
+
     for row in rows:
         debit = to_decimal(row[6])
         credit = to_decimal(row[7])
-        normal_balance = row[5]
-        net_balance = credit - debit if normal_balance == "credit" else debit - credit
+
+        # Resolve classification using the engine
+        account = account_index.get(row[0])
+        classification = classify_account(account, account_index=account_index)
+        role = classification.statement_role
+
+        # Reports expect balances relative to the account type's natural side
+        if role in {"revenue", "liability", "equity"}:
+            net_balance = credit - debit
+        else:
+            net_balance = debit - credit
+        
         items.append(
             {
                 "account_id": row[0],
                 "account_code": row[1],
                 "account_name": row[2],
                 "account_type": row[3],
+                "account_role": role,
                 "account_class": row[4],
-                "normal_balance": normal_balance,
+                "normal_balance": row[5],
                 "debit": debit,
                 "credit": credit,
                 "net_balance": net_balance,
@@ -255,6 +290,7 @@ def generate_trial_balance(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
 ):
+    _assert_configured()
     items = _group_posted_lines(db, company_id=company_id, start_date=start_date, end_date=end_date)
     return build_trial_balance(
         company_id=company_id,
@@ -271,24 +307,18 @@ def generate_income_statement(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
 ):
-    revenue_items = _group_posted_lines(
+    _assert_configured()
+    items = _group_posted_lines(
         db,
         company_id=company_id,
         start_date=start_date,
         end_date=end_date,
-        account_types=("revenue", "income"),
     )
-    expense_items = _group_posted_lines(
-        db,
-        company_id=company_id,
-        start_date=start_date,
-        end_date=end_date,
-        account_types=("expense",),
-    )
+    # Both revenues and expenses are passed as the same items list; the engine filters by role
     return build_income_statement(
         company_id=company_id,
-        revenue_items=revenue_items,
-        expense_items=expense_items,
+        revenue_items=items,
+        expense_items=items,
         start_date=start_date,
         end_date=end_date,
         generated_at=datetime.now(timezone.utc),
@@ -296,32 +326,20 @@ def generate_income_statement(
 
 
 def generate_balance_sheet(db: Session, company_id: UUID, end_date: datetime):
-    asset_items = _group_posted_lines(
+    _assert_configured()
+    items = _group_posted_lines(
         db,
         company_id=company_id,
         end_date=end_date,
-        account_types=("asset",),
-    )
-    liability_items = _group_posted_lines(
-        db,
-        company_id=company_id,
-        end_date=end_date,
-        account_types=("liability",),
-    )
-    equity_items = _group_posted_lines(
-        db,
-        company_id=company_id,
-        end_date=end_date,
-        account_types=("equity",),
     )
 
     income_statement = generate_income_statement(db, company_id=company_id, end_date=end_date)
     return build_balance_sheet(
         company_id=company_id,
         end_date=end_date,
-        asset_items=asset_items,
-        liability_items=liability_items,
-        equity_items=equity_items,
+        asset_items=items,
+        liability_items=items,
+        equity_items=items,
         net_income=income_statement["net_income"],
         generated_at=datetime.now(timezone.utc),
     )
@@ -337,7 +355,7 @@ def _get_posted_entries_with_lines(
         db.query(models.JournalEntry)
         .options(joinedload(models.JournalEntry.lines).joinedload(models.JournalEntryLine.account))
         .filter(models.JournalEntry.company_id == company_id)
-        .filter(models.JournalEntry.status == "posted")
+        .filter(models.JournalEntry.status == _get_posted_status())
     )
 
     if start_date:
@@ -404,6 +422,7 @@ def generate_cash_flow_statement(
     investing_account_ids: Sequence[UUID] | None = None,
     financing_account_ids: Sequence[UUID] | None = None,
 ):
+    _assert_configured()
     treasury_account_id_set = normalize_account_ids(treasury_account_ids)
     investing_account_id_set = normalize_account_ids(investing_account_ids)
     financing_account_id_set = normalize_account_ids(financing_account_ids)

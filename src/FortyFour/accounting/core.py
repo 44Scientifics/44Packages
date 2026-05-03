@@ -88,6 +88,15 @@ class AccountSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class AccountClassification:
+    pcg_class: int | None
+    statement_role: str
+    cash_flow_role: str
+    classification_source: str
+    diagnostics: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class EntryLineSnapshot:
     account_id: UUID
     account: AccountSnapshot
@@ -110,6 +119,13 @@ def get_line_value(line: Any, field_name: str, default: Any = ZERO) -> Any:
     if isinstance(line, dict):
         return line.get(field_name, default)
     return getattr(line, field_name, default)
+
+
+def normalized_text_value(value: Any | None) -> str:
+    if value is None:
+        return ""
+    raw_value = getattr(value, "value", value)
+    return str(raw_value).strip().lower()
 
 
 def normalize_account_ids(account_ids: Iterable[UUID] | None) -> set[UUID]:
@@ -136,9 +152,9 @@ def account_code(account: Any | None) -> str:
     return str(get_line_value(account, "code", "") or "").strip()
 
 
-def resolved_pcg_class(account: Any | None) -> int | None:
+def resolve_pcg_class_with_source(account: Any | None) -> tuple[int | None, str]:
     if not account:
-        return None
+        return None, "unknown"
 
     code = account_code(account)
     code_class = None
@@ -153,13 +169,92 @@ def resolved_pcg_class(account: Any | None) -> int | None:
     except (TypeError, ValueError):
         stored_class = None
 
-    account_type = str(get_line_value(account, "account_type", "") or "").strip().lower()
-    default_class = DEFAULT_ACCOUNT_CLASS_BY_TYPE.get(account_type)
-    if stored_class is not None and stored_class != default_class:
-        return stored_class
     if code_class is not None:
-        return code_class
-    return stored_class
+        return code_class, "code"
+    if stored_class is not None:
+        return stored_class, "account_class"
+    return None, "unknown"
+
+
+def resolved_pcg_class(account: Any | None) -> int | None:
+    return resolve_pcg_class_with_source(account)[0]
+
+
+def infer_statement_role_from_pcg_class(pcg_class: int | None, account: Any | None = None) -> str:
+    normalized_account_type = ""
+    normal_balance = ""
+    if account is not None:
+        normalized_account_type = normalized_text_value(get_line_value(account, "account_type", ""))
+        normal_balance = normalized_text_value(get_line_value(account, "normal_balance", ""))
+
+    if pcg_class is None and account is not None:
+        if normalized_account_type == "income":
+            return "revenue"
+        if normalized_account_type in {"asset", "liability", "equity", "expense", "revenue"}:
+            return normalized_account_type
+        if normal_balance == "debit":
+            return "asset"
+        if normal_balance == "credit":
+            return "liability"
+        return "unknown"
+
+    if pcg_class == 1 and account is not None:
+        if normalized_account_type == "equity":
+            return "equity" if normal_balance in {"", "credit"} else "unknown"
+        if normalized_account_type == "liability":
+            return "liability" if normal_balance in {"", "credit"} else "unknown"
+        if normal_balance == "credit":
+            return "liability"
+        if normal_balance == "debit":
+            return "unknown"
+        return "unknown"
+    if pcg_class == 4 and account is not None:
+        if normalized_account_type == "asset" or normal_balance == "debit":
+            return "asset"
+        if normalized_account_type in {"liability", "equity"} or normal_balance == "credit":
+            return "liability"
+        return "unknown"
+    if pcg_class in {1, 4}:
+        return "liability"
+    if pcg_class in {2, 3, 5}:
+        return "asset"
+    if pcg_class == 6:
+        return "expense"
+    if pcg_class == 7:
+        return "revenue"
+    return "unknown"
+
+
+def classify_account(
+    account: Any,
+    account_index: dict[UUID, Any] | None = None,
+) -> AccountClassification:
+    pcg_class, classification_source = resolve_pcg_class_with_source(account)
+    statement_role = infer_statement_role_from_pcg_class(pcg_class, account=account)
+    diagnostics: list[str] = []
+
+    # If role is unknown and we have an index, try ancestor inheritance
+    if statement_role == "unknown" and account_index:
+        parent_id = get_line_value(account, "parent_id", None)
+        if parent_id:
+            ancestor = account_index.get(parent_id)
+            if ancestor:
+                # Recursive call for ancestor
+                ancestor_classification = classify_account(ancestor, account_index=account_index)
+                if ancestor_classification.statement_role != "unknown":
+                    classification_source = "hierarchy"
+                    statement_role = ancestor_classification.statement_role
+            else:
+                diagnostics.append("missing_parent")
+
+    cash_flow_role = "treasury" if is_treasury_account(account) else classify_cash_flow_account(account)
+    return AccountClassification(
+        pcg_class=pcg_class,
+        statement_role=statement_role,
+        cash_flow_role=cash_flow_role,
+        classification_source=classification_source,
+        diagnostics=tuple(diagnostics),
+    )
 
 
 def account_code_matches_prefixes(account: Any | None, prefixes: Sequence[str]) -> bool:
@@ -177,12 +272,16 @@ def is_treasury_account(
     treasury_account_id_set = normalize_account_ids(treasury_account_ids)
     if treasury_account_id_set:
         return get_line_value(account, "id", None) in treasury_account_id_set
-    if get_line_value(account, "account_type", None) != "asset":
-        return False
-    if resolved_pcg_class(account) == 5 and account_code_matches_prefixes(account, TREASURY_ACCOUNT_CODE_PREFIXES):
+
+    pcg_class = resolved_pcg_class(account)
+    if pcg_class == 5 and account_code_matches_prefixes(account, TREASURY_ACCOUNT_CODE_PREFIXES):
         return True
 
-    return any(marker in account_text(account) for marker in TREASURY_ACCOUNT_NAME_MARKERS)
+    raw_account_type = normalized_text_value(get_line_value(account, "account_type", ""))
+    if pcg_class == 5 or raw_account_type == "asset":
+        return any(marker in account_text(account) for marker in TREASURY_ACCOUNT_NAME_MARKERS)
+
+    return False
 
 
 def classify_cash_flow_account(
@@ -200,7 +299,7 @@ def classify_cash_flow_account(
         return "investing"
 
     pcg_class = resolved_pcg_class(account)
-    normalized_account_type = str(get_line_value(account, "account_type", "") or "").strip().lower()
+    normalized_account_type = normalized_text_value(get_line_value(account, "account_type", ""))
     normalized_account_text = account_text(account)
     if normalized_account_type == "equity":
         return "financing"
@@ -218,7 +317,7 @@ def classify_cash_flow_account(
 
 
 def is_supporting_non_operating_result_account(account: Any) -> bool:
-    normalized_account_type = str(get_line_value(account, "account_type", "") or "").strip().lower()
+    normalized_account_type = normalized_text_value(get_line_value(account, "account_type", ""))
     if normalized_account_type not in {"expense", "revenue", "income"}:
         return False
     return any(marker in account_text(account) for marker in NON_OPERATING_RESULT_NAME_MARKERS)
@@ -265,6 +364,23 @@ def select_counterpart_lines_for_cash_flow(
         )
         for line in counterpart_lines
     ]
+    supporting_operating_lines = [
+        line
+        for line, section in classified_lines
+        if section == "operating"
+        and is_supporting_non_operating_result_account(get_line_value(line, "account", None))
+    ]
+    if supporting_operating_lines:
+        supporting_operating_line_ids = {id(line) for line in supporting_operating_lines}
+        classified_lines = [
+            (line, section)
+            for line, section in classified_lines
+            if id(line) not in supporting_operating_line_ids
+        ]
+
+    if not classified_lines:
+        return counterpart_lines
+
     non_operating_sections = {
         section
         for _, section in classified_lines
@@ -278,10 +394,10 @@ def select_counterpart_lines_for_cash_flow(
             is_supporting_non_operating_result_account(get_line_value(line, "account", None))
             for line in operating_lines
         ):
-            return counterpart_lines
+            return [line for line, _ in classified_lines]
         return [line for line, section in classified_lines if section == target_section]
 
-    return counterpart_lines
+    return [line for line, _ in classified_lines]
 
 
 def accumulate_cash_flow_line(bucket: dict[UUID, dict[str, Any]], line: Any, amount: Decimal) -> None:
@@ -322,7 +438,12 @@ def validate_journal_entry_lines(lines: Sequence[Any]) -> None:
         raise ValueError("Journal entry lines must be balanced")
 
 
-def statement_section(title: str, items: list[dict], amount_field: str = "net_balance") -> dict[str, Any]:
+def statement_section(
+    title: str,
+    items: list[dict],
+    amount_field: str = "net_balance",
+    filter_role: str | None = None,
+) -> dict[str, Any]:
     lines = [
         {
             "account_id": item["account_id"],
@@ -331,7 +452,8 @@ def statement_section(title: str, items: list[dict], amount_field: str = "net_ba
             "amount": to_decimal(item[amount_field]),
         }
         for item in items
-        if to_decimal(item[amount_field]) != ZERO
+        if to_decimal(item[amount_field]) != ZERO 
+        and (filter_role is None or item.get("account_role") == filter_role)
     ]
     lines.sort(key=lambda item: (item["account_code"], item["account_name"]))
     total = sum((line["amount"] for line in lines), ZERO)
@@ -366,8 +488,8 @@ def build_income_statement(
     end_date: datetime | None = None,
     generated_at: datetime | None = None,
 ) -> dict[str, Any]:
-    revenues = statement_section("Revenues", revenue_items)
-    expenses = statement_section("Expenses", expense_items)
+    revenues = statement_section("Revenues", revenue_items, filter_role="revenue")
+    expenses = statement_section("Expenses", expense_items, filter_role="expense")
     total_revenue = revenues["total"]
     total_expenses = expenses["total"]
     return {
@@ -392,7 +514,7 @@ def build_balance_sheet(
     net_income: Decimal = ZERO,
     generated_at: datetime | None = None,
 ) -> dict[str, Any]:
-    equity_section = statement_section("Equity", equity_items)
+    equity_section = statement_section("Equity", equity_items, filter_role="equity")
     if net_income != ZERO:
         equity_section["lines"].append(
             {
@@ -404,8 +526,8 @@ def build_balance_sheet(
         )
         equity_section["total"] += to_decimal(net_income)
 
-    assets = statement_section("Assets", asset_items)
-    liabilities = statement_section("Liabilities", liability_items)
+    assets = statement_section("Assets", asset_items, filter_role="asset")
+    liabilities = statement_section("Liabilities", liability_items, filter_role="liability")
     total_assets = assets["total"]
     total_liabilities_and_equity = liabilities["total"] + equity_section["total"]
 
@@ -519,6 +641,7 @@ def build_cash_flow_statement(
 
 
 __all__ = [
+    "AccountClassification",
     "AccountSnapshot",
     "EntryLineSnapshot",
     "JournalEntrySnapshot",
@@ -532,11 +655,14 @@ __all__ = [
     "build_cash_flow_statement",
     "build_income_statement",
     "build_trial_balance",
+    "classify_account",
     "classify_cash_flow_account",
     "get_line_value",
+    "infer_statement_role_from_pcg_class",
     "is_supporting_non_operating_result_account",
     "is_treasury_account",
     "normalize_account_ids",
+    "resolve_pcg_class_with_source",
     "resolved_pcg_class",
     "select_counterpart_lines_for_cash_flow",
     "statement_section",
