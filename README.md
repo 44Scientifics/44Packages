@@ -16,12 +16,18 @@
 
 ## 📦 Installation
 
-To install the package, clone the repository and install it in editable mode:
+To install the package using `uv`, clone the repository and install it:
 
 ```bash
 git clone https://github.com/44Scientifics/44Packages.git
 cd 44Packages
-pip install .
+uv sync
+```
+
+Alternatively, you can install it directly from GitHub using `uv`:
+
+```bash
+uv add git+https://github.com/44Scientifics/44Packages.git
 ```
 
 ---
