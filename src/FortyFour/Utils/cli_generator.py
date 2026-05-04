@@ -61,8 +61,9 @@ class OpenAPICLIGenerator:
         parts = [p for p in path.split("/") if p and not p.startswith("{")]
         return f"{method}-{'-'.join(parts)}"
 
-    def generate_command_code(self, tag: str, operations: List[Dict[str, Any]], base_url: str) -> str:
+    def generate_command_code(self, tag: str, operations: List[Dict[str, Any]], base_url: str, tag_description: Optional[str] = None) -> str:
         """Generates the Python code for a Typer command module."""
+        help_text = tag_description or f"CLI commands for managing {tag} resources and operations."
         code = [
             "import typer",
             "import httpx",
@@ -71,7 +72,7 @@ class OpenAPICLIGenerator:
             "import json",
             "import sys",
             "",
-            f"app = typer.Typer(help='Manage CRUD Operations for {tag}')"
+            f"app = typer.Typer(help={repr(help_text)})"
         ]
         if self.config_module:
             code.append(f"from {self.config_module} import BASE_URL, TIMEOUT")
@@ -84,14 +85,24 @@ class OpenAPICLIGenerator:
             path = op["path"]
             method = op["method"]
             details = op["details"]
-            description = details.get("description", "")
-            first_line_desc = description.split("\n")[0].strip()
+            description = details.get("description", "") or details.get("summary", "")
+            
+            # Standardized Agentic Docstring
+            lines = description.split("\n")
+            summary = lines[0].strip() if lines else "No summary available."
+            detailed_desc = "\n    ".join([l.strip() for l in lines[1:] if l.strip()]) if len(lines) > 1 else ""
+            
+            docstring = [f"    \"\"\"", f"    {summary}"]
+            if detailed_desc:
+                docstring.append("")
+                docstring.append(f"    {detailed_desc}")
             
             cmd_name = self.get_command_name(details, path, method, tag)
 
             params = details.get("parameters", [])
             typer_params = []
             api_params = {"query": [], "path": []}
+            param_docs = []
             
             for p in params:
                 name = p["name"]
@@ -117,6 +128,9 @@ class OpenAPICLIGenerator:
                 
                 default = "None"
                 help_text = p.get('description', '')
+                if help_text:
+                    param_docs.append(f"    - {name}: {help_text}")
+                
                 if not required:
                     if "default" in schema:
                         default = repr(schema["default"])
@@ -129,10 +143,17 @@ class OpenAPICLIGenerator:
             request_body = details.get("requestBody")
             if request_body:
                 typer_params.append("data: str = typer.Option(None, help='JSON string for request body')")
+                param_docs.append("    - data: JSON string for the request body containing the resource details.")
+
+            if param_docs:
+                docstring.append("")
+                docstring.extend(param_docs)
+            
+            docstring.append("    \"\"\"")
 
             code.append(f"@app.command('{cmd_name}')")
             code.append(f"def {cmd_name.replace('-', '_')}({', '.join(typer_params)}):")
-            code.append(f"    \"\"\"{first_line_desc}\"\"\"")
+            code.extend(docstring)
             code.append(f"    params = {{}}")
             for p in api_params["query"]:
                 code.append(f"    if {p} is not None: params['{p}'] = {p}")
@@ -217,11 +238,15 @@ class OpenAPICLIGenerator:
                         "details": op
                     })
                     
+        # Extract tag descriptions if available
+        tag_metadata = {t["name"]: t.get("description") for t in spec.get("tags", []) if "name" in t}
+
         generated_modules = []
         for tag, ops in tags_ops.items():
             module_name = self.clean_name(tag)
+            tag_description = tag_metadata.get(tag)
             print(f"Generating commands for {tag} -> {module_name}.py")
-            code = self.generate_command_code(tag, ops, base_url=active_base)
+            code = self.generate_command_code(tag, ops, base_url=active_base, tag_description=tag_description)
             with open(os.path.join(commands_full_path, f"{module_name}.py"), "w") as f:
                 f.write(code)
             generated_modules.append((tag, module_name))

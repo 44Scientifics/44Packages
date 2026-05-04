@@ -14,8 +14,12 @@ from FortyFour.accounting.core import (
     build_cash_flow_statement,
     build_income_statement,
     build_trial_balance,
+    classify_account,
     EntryLineSnapshot,
     JournalEntrySnapshot,
+    resolved_pcg_class,
+    is_treasury_account,
+    select_counterpart_lines_for_cash_flow,
     statement_section,
     validate_journal_entry_lines,
 )
@@ -121,6 +125,7 @@ def test_build_income_statement_computes_net_income() -> None:
             "account_id": "rev-1",
             "account_code": "701",
             "account_name": "Sales",
+            "account_role": "revenue",
             "net_balance": Decimal("500.00"),
         }
     ]
@@ -129,6 +134,7 @@ def test_build_income_statement_computes_net_income() -> None:
             "account_id": "exp-1",
             "account_code": "601",
             "account_name": "Purchases",
+            "account_role": "expense",
             "net_balance": Decimal("300.00"),
         }
     ]
@@ -156,6 +162,7 @@ def test_build_balance_sheet_adds_current_period_result_to_equity() -> None:
             "account_id": "asset-1",
             "account_code": "512",
             "account_name": "Bank",
+            "account_role": "asset",
             "net_balance": Decimal("1000.00"),
         }
     ]
@@ -164,6 +171,7 @@ def test_build_balance_sheet_adds_current_period_result_to_equity() -> None:
             "account_id": "liab-1",
             "account_code": "401",
             "account_name": "Suppliers",
+            "account_role": "liability",
             "net_balance": Decimal("600.00"),
         }
     ]
@@ -172,6 +180,7 @@ def test_build_balance_sheet_adds_current_period_result_to_equity() -> None:
             "account_id": "eq-1",
             "account_code": "101",
             "account_name": "Capital",
+            "account_role": "equity",
             "net_balance": Decimal("200.00"),
         }
     ]
@@ -289,6 +298,40 @@ def test_build_cash_flow_statement_routes_asset_disposal_gain_to_investing_only(
     assert statement["net_change_in_cash"] == Decimal("120.00")
 
 
+def test_select_counterpart_lines_strips_supporting_gain_lines_in_mixed_entries() -> None:
+    equipment = make_account(
+        "dddddddd-dddd-dddd-dddd-dddddddddddd",
+        code="218",
+        name="Equipment",
+        account_type="asset",
+        account_class=2,
+    )
+    bank_loan = make_account(
+        "abababab-abab-abab-abab-abababababab",
+        code="164",
+        name="Bank loan",
+        account_type="liability",
+        account_class=1,
+    )
+    disposal_gain = make_account(
+        "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+        code="775",
+        name="Gain on disposal",
+        account_type="revenue",
+        account_class=7,
+    )
+
+    counterpart_lines = [
+        make_line(equipment, credit="100.00"),
+        make_line(bank_loan, credit="60.00"),
+        make_line(disposal_gain, credit="20.00"),
+    ]
+
+    selected_lines = select_counterpart_lines_for_cash_flow(counterpart_lines)
+
+    assert [line.account.code for line in selected_lines] == ["218", "164"]
+
+
 def test_snapshot_dataclasses_work_with_validation_and_cash_flow_builder() -> None:
     company_id = UUID("66666666-6666-6666-6666-666666666666")
     treasury = AccountSnapshot(
@@ -321,3 +364,205 @@ def test_snapshot_dataclasses_work_with_validation_and_cash_flow_builder() -> No
 
     assert statement["operating_activities"]["total"] == Decimal("80.00")
     assert statement["closing_cash_balance"] == Decimal("80.00")
+
+
+def test_resolved_pcg_class_prefers_six_digit_code_when_present() -> None:
+    account = make_account(
+        "12121212-1212-1212-1212-121212121212",
+        code="512100",
+        name="Main bank",
+        account_type="asset",
+        account_class=4,
+    )
+
+    assert resolved_pcg_class(account) == 5
+
+
+def test_resolved_pcg_class_prefers_short_code_when_present() -> None:
+    account = make_account(
+        "78787878-7878-7878-7878-787878787878",
+        code="701",
+        name="Sales",
+        account_type="asset",
+        account_class=4,
+    )
+
+    assert resolved_pcg_class(account) == 7
+
+
+def test_statement_role_uses_pcg_code_when_account_type_is_wrong() -> None:
+    account = make_account(
+        "34343434-3434-3434-3434-343434343434",
+        code="707000",
+        name="Sales",
+        account_type="asset",
+        account_class=5,
+    )
+
+    classification = classify_account(account)
+
+    assert classification.pcg_class == 7
+    assert classification.statement_role == "revenue"
+    assert classification.classification_source == "code"
+
+
+def test_code_first_classification_does_not_mark_all_class_five_assets_as_treasury() -> None:
+    account = make_account(
+        "56565656-5656-5656-5656-565656565656",
+        code="520000",
+        name="Marketable securities",
+        account_type="asset",
+        account_class=5,
+    )
+
+    classification = classify_account(account)
+
+    assert classification.pcg_class == 5
+    assert classification.statement_role == "asset"
+    assert classification.cash_flow_role == "operating"
+    assert is_treasury_account(account) is False
+
+
+def test_code_first_classification_marks_prefixed_treasury_code_even_with_wrong_account_type() -> None:
+    account = make_account(
+        "90909090-9090-9090-9090-909090909090",
+        code="512100",
+        name="Main bank",
+        account_type="liability",
+        account_class=4,
+    )
+
+    classification = classify_account(account)
+
+    assert classification.pcg_class == 5
+    assert classification.statement_role == "asset"
+    assert classification.cash_flow_role == "treasury"
+    assert is_treasury_account(account) is True
+
+
+def test_classification_handles_class_four_receivables_as_assets() -> None:
+    account = make_account(
+        "81818181-8181-8181-8181-818181818181",
+        code="411000",
+        name="Customer receivable",
+        account_type="asset",
+        account_class=4,
+    )
+
+    classification = classify_account(account)
+
+    assert classification.pcg_class == 4
+    assert classification.statement_role == "asset"
+
+
+def test_classification_handles_class_one_equity_as_equity() -> None:
+    account = make_account(
+        "64646464-6464-6464-6464-646464646464",
+        code="101000",
+        name="Share capital",
+        account_type="equity",
+        account_class=1,
+    )
+
+    classification = classify_account(account)
+
+    assert classification.pcg_class == 1
+    assert classification.statement_role == "equity"
+
+
+def test_classify_account_inherits_role_from_parent_chain() -> None:
+    root = make_account(
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        code="200000",
+        name="Immobilisations",
+        account_type="asset",
+    )
+    setattr(root, "parent_id", None)
+    
+    child = make_account(
+        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        code="",  # No code, will be unknown by itself
+        name="Equipment",
+        account_type="",
+    )
+    setattr(child, "parent_id", root.id)
+    
+    account_index = {root.id: root, child.id: child}
+
+    classification = classify_account(child, account_index=account_index)
+
+    assert classification.statement_role == "asset"
+    assert classification.classification_source == "hierarchy"
+
+
+def test_classify_account_reports_missing_parent_diagnostic() -> None:
+    orphan = make_account(
+        "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        code="",
+        name="Supplier",
+        account_type="",
+    )
+    setattr(orphan, "parent_id", UUID("dddddddd-dddd-dddd-dddd-dddddddddddd"))
+
+    classification = classify_account(orphan, account_index={orphan.id: orphan})
+
+    assert "missing_parent" in classification.diagnostics
+
+
+def test_classification_falls_back_to_account_type_without_code() -> None:
+    account = make_account(
+        "52525252-5252-5252-5252-525252525252",
+        code="",
+        name="Sales without code",
+        account_type="revenue",
+    )
+
+    classification = classify_account(account)
+
+    assert classification.pcg_class is None
+    assert classification.statement_role == "revenue"
+    assert classification.classification_source == "unknown"
+
+
+def test_classification_falls_back_to_account_type_with_malformed_code() -> None:
+    account = make_account(
+        "61616161-6161-6161-6161-616161616161",
+        code="ABC123",
+        name="Office supplies",
+        account_type="expense",
+    )
+
+    classification = classify_account(account)
+
+    assert classification.pcg_class is None
+    assert classification.statement_role == "expense"
+    assert classification.classification_source == "unknown"
+
+
+def test_classification_marks_equipment_as_investing() -> None:
+    account = make_account(
+        "73737373-7373-7373-7373-737373737373",
+        code="218100",
+        name="Equipment",
+        account_type="asset",
+        account_class=2,
+    )
+
+    classification = classify_account(account)
+    assert classification.pcg_class == 2
+    assert classification.cash_flow_role == "investing"
+
+
+def test_treasury_detection_does_not_treat_bank_loan_as_treasury() -> None:
+    account = make_account(
+        "abababab-abab-abab-abab-abababababab",
+        code="164000",
+        name="Bank loan",
+        account_type="liability",
+        account_class=1,
+    )
+
+    classification = classify_account(account)
+    assert is_treasury_account(account) is False
+    assert classification.statement_role == "liability"
+    assert classification.cash_flow_role == "financing"
