@@ -2,12 +2,14 @@
 .env
 .gitattributes
 .gitignore
+.python-version
 AGENT.md
 MANIFEST.in
 README.md
 build.sh
 pyproject.toml
 search.py
+uv.lock
 .idea/.gitignore
 .idea/44Packages.iml
 .idea/misc.xml
