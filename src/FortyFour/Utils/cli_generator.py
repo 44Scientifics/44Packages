@@ -23,9 +23,9 @@ class OpenAPICLIGenerator:
         self.commands_dir = commands_dir
         self.config_module = config_module
 
-    def fetch_openapi(self, url: str) -> Dict[str, Any]:
+    def fetch_openapi(self, url: str, timeout: int = 30) -> Dict[str, Any]:
         """Fetches the OpenAPI JSON specification."""
-        response = httpx.get(url)
+        response = httpx.get(url, timeout=timeout)
         response.raise_for_status()
         return response.json()
 
@@ -53,8 +53,9 @@ class OpenAPICLIGenerator:
         if op_id:
             res = op_id.replace("_", "-")
             # Strip redundant tag prefix if it starts with it
-            if res.startswith(f"{tag_l}-"):
-                res = res[len(tag_l)+1:]
+            tag_hyphen = tag_l.replace("_", "-")
+            if res.startswith(f"{tag_hyphen}-"):
+                res = res[len(tag_hyphen)+1:]
             return res
         
         # Fallback to path/method
@@ -67,6 +68,7 @@ class OpenAPICLIGenerator:
         code = [
             "import typer",
             "import httpx",
+            "import os",
             "from typing import Optional, List",
             "from rich import print",
             "import json",
@@ -127,16 +129,18 @@ class OpenAPICLIGenerator:
                     param_type = "List[str]"
                 
                 default = "None"
-                help_text = p.get('description', '')
-                if help_text:
-                    param_docs.append(f"    - {name}: {help_text}")
+                param_help = p.get('description', '')
+                if param_help:
+                    param_docs.append(f"    - {name}: {param_help}")
                 
                 if not required:
                     if "default" in schema:
                         default = repr(schema["default"])
-                    typer_params.append(f"{name}: {param_type} = typer.Option({default}, help={repr(help_text)})")
+                    # Wrap array type as Optional when the parameter is not required
+                    typed = f"Optional[{param_type}]" if param_type.startswith("List") else param_type
+                    typer_params.append(f"{name}: {typed} = typer.Option({default}, help={repr(param_help)})")
                 else:
-                    typer_params.append(f"{name}: {param_type} = typer.Argument(..., help={repr(help_text)})")
+                    typer_params.append(f"{name}: {param_type} = typer.Argument(..., help={repr(param_help)})")
                 
                 api_params[param_in].append(name)
 
@@ -162,9 +166,9 @@ class OpenAPICLIGenerator:
                             # Non-file fields go as data
                             pass
                 if is_multipart:
-                    for field in multipart_file_fields:
-                        typer_params.append(f"file_path: str = typer.Argument(..., help='Path to the local file to upload')")
-                        param_docs.append(f"    - file_path: Path to the local file to upload (sent as '{field}' field)")
+                    if multipart_file_fields:
+                        typer_params.append("file_path: str = typer.Argument(..., help='Path to the local file to upload')")
+                        param_docs.append(f"    - file_path: Path to the local file to upload (sent as '{multipart_file_fields[0]}' field)")
                 else:
                     typer_params.append("data: str = typer.Option(None, help='JSON string for request body')")
                     param_docs.append("    - data: JSON string for the request body containing the resource details.")
@@ -196,12 +200,15 @@ class OpenAPICLIGenerator:
                     skip_common_response = True
                     code.append("    try:")
                     code.append(f"        with open(file_path, 'rb') as f:")
-                    code.append(f"            files = {{'{multipart_file_fields[0]}': (file_path.split('/')[-1], f, 'application/octet-stream')}}")
+                    code.append(f"            files = {{'{multipart_file_fields[0]}': (os.path.basename(file_path), f, 'application/octet-stream')}}")
                     code.append(f"            response = httpx.{method}(url, params=params, files=files, timeout=TIMEOUT)")
                     code.append(f"    except FileNotFoundError:")
-                    code.append(f"        print(f'[red]File not found:[/red] {{file_path}}')")
+                    code.append(f"        print(f'[red]File not found:[/red] {{file_path}}')")                    
                     code.append(f"        return")
-                    code.append(f"    except Exception as e:")
+                    code.append(f"    except httpx.RequestError as e:")
+                    code.append(f"        print(f'[red]Network error:[/red] {{e}}')")                    
+                    code.append(f"        return")
+                    code.append(f"    except OSError as e:")
                     code.append(f"        print(f'[red]Error reading file:[/red] {{e}}')")
                     code.append(f"        return")
                     code.append(f"    if response.status_code >= 400:")
@@ -209,7 +216,7 @@ class OpenAPICLIGenerator:
                     code.append(f"    else:")
                     code.append(f"        try:")
                     code.append(f"            sys.stdout.write(json.dumps(response.json(), indent=4) + '\\n')")
-                    code.append(f"        except:")
+                    code.append(f"        except Exception:")
                     code.append(f"            sys.stdout.write(str(response.text) + '\\n')")
                 else:
                     fetch_call.append(f"httpx.{method}(url, params=params")
@@ -224,13 +231,17 @@ class OpenAPICLIGenerator:
                 fetch_call.append(", timeout=TIMEOUT)")
             
             if not skip_common_response:
-                code.append(f"    response = {''.join(fetch_call)}")
+                code.append("    try:")
+                code.append(f"        response = {''.join(fetch_call)}")
+                code.append("    except httpx.RequestError as e:")
+                code.append("        print(f'[red]Network error:[/red] {e}')")
+                code.append("        return")
                 code.append("    if response.status_code >= 400:")
                 code.append("        print(f'[red]Error {response.status_code}:[/red] {response.text}')")
                 code.append("    else:")
                 code.append("        try:")
                 code.append("            sys.stdout.write(json.dumps(response.json(), indent=4) + '\\n')")
-                code.append("        except:")
+                code.append("        except Exception:")
                 code.append("            sys.stdout.write(str(response.text) + '\\n')")
             code.append("")
             
@@ -250,6 +261,9 @@ class OpenAPICLIGenerator:
             print(f"Inferred base_url: {active_base}")
 
         target_dir = output_dir or os.getcwd()
+        if not os.path.isdir(target_dir):
+            raise ValueError(f"output_dir does not exist or is not a directory: {target_dir}")
+
         commands_full_path = os.path.join(target_dir, self.commands_dir)
         
         if clean and os.path.exists(commands_full_path):
@@ -259,14 +273,11 @@ class OpenAPICLIGenerator:
         print(f"Fetching OpenAPI spec from {active_openapi}...")
         spec = self.fetch_openapi(active_openapi)
         
-        if not os.path.exists(commands_full_path):
-            os.makedirs(commands_full_path)
+        os.makedirs(commands_full_path, exist_ok=True)
         
         # Ensure the commands directory is a package
-        init_path = os.path.join(commands_full_path, "__init__.py")
-        if not os.path.exists(init_path):
-            with open(init_path, "w") as f:
-                f.write("")
+        with open(os.path.join(commands_full_path, "__init__.py"), "w") as f:
+            f.write("")
             
         tags_ops = {}
         
@@ -298,8 +309,13 @@ class OpenAPICLIGenerator:
             tag_description = tag_metadata.get(tag)
             print(f"Generating commands for {tag} -> {module_name}.py")
             code = self.generate_command_code(tag, ops, base_url=active_base, spec=spec, tag_description=tag_description)
-            with open(os.path.join(commands_full_path, f"{module_name}.py"), "w") as f:
-                f.write(code)
+            module_path = os.path.join(commands_full_path, f"{module_name}.py")
+            try:
+                with open(module_path, "w", encoding="utf-8") as f:
+                    f.write(code)
+            except OSError as e:
+                print(f"[red]Failed to write {module_path}:[/red] {e}")
+                continue
             generated_modules.append((tag, module_name))
             
         # Update main.py in the target directory
@@ -325,7 +341,8 @@ class OpenAPICLIGenerator:
         main_code.append("if __name__ == '__main__':")
         main_code.append("    app()")
         
-        with open(os.path.join(target_dir, "main.py"), "w") as f:
+        main_path = os.path.join(target_dir, "main.py")
+        with open(main_path, "w", encoding="utf-8") as f:
             f.write("\n".join(main_code))
         
         print(f"CLI Generation Complete! Target: {target_dir}")
