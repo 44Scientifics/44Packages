@@ -68,6 +68,7 @@ src/FortyFour/Utils/__pycache__/colors.cpython-310.pyc
 src/FortyFour/Utils/__pycache__/helpers.cpython-311.pyc
 src/FortyFour/Utils/__pycache__/helpers.cpython-312.pyc
 src/FortyFour/Utils/__pycache__/helpers.cpython-314.pyc
+src/FortyFour/Utils/__pycache__/search.cpython-312.pyc
 src/FortyFour/Utils/__pycache__/search.cpython-314.pyc
 src/FortyFour/__pycache__/__init__.cpython-310.pyc
 src/FortyFour/__pycache__/__init__.cpython-311.pyc
