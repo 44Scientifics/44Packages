@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Iterable, Sequence
+from typing import TYPE_CHECKING, Iterable, Sequence
 from uuid import UUID
 
 from sqlalchemy import func
@@ -24,6 +24,10 @@ from .core import (
     normalize_account_ids,
     to_decimal,
 )
+
+
+if TYPE_CHECKING:
+    from .strategies import AccountingStrategy
 
 
 def _to_account_snapshot(account: models.ChartOfAccount) -> AccountSnapshot:
@@ -218,6 +222,7 @@ def _group_posted_lines(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     account_types: Iterable[str] | None = None,
+    strategy: AccountingStrategy | None = None,
 ):
     query = (
         _build_line_query(db, company_id=company_id, start_date=start_date, end_date=end_date)
@@ -255,10 +260,16 @@ def _group_posted_lines(
     for row in rows:
         debit = to_decimal(row[6])
         credit = to_decimal(row[7])
+        signed_net_balance = debit - credit
 
         # Resolve classification using the engine
         account = account_index.get(row[0])
-        classification = classify_account(account, account_index=account_index)
+        classification = classify_account(
+            account,
+            account_index=account_index,
+            net_balance=signed_net_balance,
+            strategy=strategy,
+        )
         role = classification.statement_role
 
         # Reports expect balances relative to the account type's natural side
@@ -274,6 +285,7 @@ def _group_posted_lines(
                 "account_name": row[2],
                 "account_type": row[3],
                 "account_role": role,
+                "cash_flow_role": classification.cash_flow_role,
                 "account_class": row[4],
                 "normal_balance": row[5],
                 "debit": debit,
@@ -289,9 +301,16 @@ def generate_trial_balance(
     company_id: UUID,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
+    strategy: AccountingStrategy | None = None,
 ):
     _assert_configured()
-    items = _group_posted_lines(db, company_id=company_id, start_date=start_date, end_date=end_date)
+    items = _group_posted_lines(
+        db,
+        company_id=company_id,
+        start_date=start_date,
+        end_date=end_date,
+        strategy=strategy,
+    )
     return build_trial_balance(
         company_id=company_id,
         items=items,
@@ -306,6 +325,7 @@ def generate_income_statement(
     company_id: UUID,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
+    strategy: AccountingStrategy | None = None,
 ):
     _assert_configured()
     items = _group_posted_lines(
@@ -313,6 +333,7 @@ def generate_income_statement(
         company_id=company_id,
         start_date=start_date,
         end_date=end_date,
+        strategy=strategy,
     )
     # Both revenues and expenses are passed as the same items list; the engine filters by role
     return build_income_statement(
@@ -325,15 +346,26 @@ def generate_income_statement(
     )
 
 
-def generate_balance_sheet(db: Session, company_id: UUID, end_date: datetime):
+def generate_balance_sheet(
+    db: Session,
+    company_id: UUID,
+    end_date: datetime,
+    strategy: AccountingStrategy | None = None,
+):
     _assert_configured()
     items = _group_posted_lines(
         db,
         company_id=company_id,
         end_date=end_date,
+        strategy=strategy,
     )
 
-    income_statement = generate_income_statement(db, company_id=company_id, end_date=end_date)
+    income_statement = generate_income_statement(
+        db,
+        company_id=company_id,
+        end_date=end_date,
+        strategy=strategy,
+    )
     return build_balance_sheet(
         company_id=company_id,
         end_date=end_date,
@@ -421,6 +453,7 @@ def generate_cash_flow_statement(
     treasury_account_ids: Sequence[UUID] | None = None,
     investing_account_ids: Sequence[UUID] | None = None,
     financing_account_ids: Sequence[UUID] | None = None,
+    strategy: AccountingStrategy | None = None,
 ):
     _assert_configured()
     treasury_account_id_set = normalize_account_ids(treasury_account_ids)
@@ -456,6 +489,7 @@ def generate_cash_flow_statement(
         treasury_account_ids=treasury_account_id_set,
         investing_account_ids=investing_account_id_set,
         financing_account_ids=financing_account_id_set,
+        strategy=strategy,
         generated_at=datetime.now(timezone.utc),
     )
 

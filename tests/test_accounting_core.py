@@ -23,6 +23,7 @@ from FortyFour.accounting.core import (
     statement_section,
     validate_journal_entry_lines,
 )
+from FortyFour.accounting.strategies import SyscohadaStrategy
 
 
 def make_account(
@@ -248,6 +249,117 @@ def test_build_cash_flow_statement_classifies_simple_receipt_as_operating() -> N
     assert statement["opening_cash_balance"] == Decimal("0.00")
     assert statement["closing_cash_balance"] == Decimal("100.00")
     assert statement["operating_activities"]["lines"][0]["account_code"] == "701"
+
+
+def test_classify_account_uses_strategy_for_dynamic_statement_role() -> None:
+    account = make_account(
+        "dddddddd-dddd-dddd-dddd-dddddddddddd",
+        code="521",
+        name="Bank overdraft",
+        account_type="asset",
+        account_class=5,
+    )
+
+    classification = classify_account(
+        account,
+        net_balance=Decimal("-50.00"),
+        strategy=SyscohadaStrategy(),
+    )
+
+    assert classification.statement_role == "liability"
+
+
+def test_build_cash_flow_statement_uses_strategy_for_section_mapping() -> None:
+    company_id = UUID("45454545-4545-4545-4545-454545454545")
+    start_date = datetime(2025, 1, 1, tzinfo=UTC)
+    end_date = datetime(2025, 12, 31, tzinfo=UTC)
+    generated_at = datetime(2026, 1, 15, tzinfo=UTC)
+
+    treasury = make_account(
+        "abababab-abab-abab-abab-abababababab",
+        code="512",
+        name="Main bank",
+        account_type="asset",
+        account_class=5,
+    )
+    revenue = make_account(
+        "cdcdcdcd-cdcd-cdcd-cdcd-cdcdcdcdcdcd",
+        code="701",
+        name="Sales",
+        account_type="revenue",
+        account_class=7,
+    )
+    entries = [
+        SimpleNamespace(
+            lines=[
+                make_line(treasury, debit="100.00"),
+                make_line(revenue, credit="100.00"),
+            ]
+        )
+    ]
+
+    class FinancingCashFlowStrategy:
+        def classify_statement_role(self, account, net_balance):
+            return "unknown"
+
+        def classify_cash_flow_role(self, account):
+            return "financing"
+
+    statement = build_cash_flow_statement(
+        company_id=company_id,
+        entries=entries,
+        closing_cash_balance=Decimal("100.00"),
+        start_date=start_date,
+        end_date=end_date,
+        strategy=FinancingCashFlowStrategy(),
+        generated_at=generated_at,
+    )
+
+    assert statement["operating_activities"]["total"] == Decimal("0.00")
+    assert statement["financing_activities"]["total"] == Decimal("100.00")
+
+
+def test_build_cash_flow_statement_uses_strategy_for_ohada_treasury_families() -> None:
+    company_id = UUID("47474747-4747-4747-4747-474747474747")
+    start_date = datetime(2025, 1, 1, tzinfo=UTC)
+    end_date = datetime(2025, 12, 31, tzinfo=UTC)
+    generated_at = datetime(2026, 1, 15, tzinfo=UTC)
+
+    cash_desk = make_account(
+        "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        code="571",
+        name="Box 1",
+        account_type="",
+        account_class=5,
+    )
+    supplier = make_account(
+        "11111111-2222-3333-4444-555555555555",
+        code="401",
+        name="Supplier",
+        account_type="",
+        account_class=4,
+    )
+    entries = [
+        SimpleNamespace(
+            lines=[
+                make_line(cash_desk, debit="100.00"),
+                make_line(supplier, credit="100.00"),
+            ]
+        )
+    ]
+
+    statement = build_cash_flow_statement(
+        company_id=company_id,
+        entries=entries,
+        closing_cash_balance=Decimal("100.00"),
+        start_date=start_date,
+        end_date=end_date,
+        strategy=SyscohadaStrategy(),
+        generated_at=generated_at,
+    )
+
+    assert statement["operating_activities"]["total"] == Decimal("100.00")
+    assert statement["net_change_in_cash"] == Decimal("100.00")
 
 
 def test_build_cash_flow_statement_routes_asset_disposal_gain_to_investing_only() -> None:

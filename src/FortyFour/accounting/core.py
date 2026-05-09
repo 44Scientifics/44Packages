@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Sequence
 from uuid import UUID
+
+
+if TYPE_CHECKING:
+    from .strategies import AccountingStrategy
 
 
 ZERO = Decimal("0.00")
@@ -107,6 +111,17 @@ class EntryLineSnapshot:
 @dataclass(frozen=True, slots=True)
 class JournalEntrySnapshot:
     lines: tuple[EntryLineSnapshot, ...]
+
+
+def _resolve_accounting_strategy(
+    strategy: AccountingStrategy | None = None,
+) -> AccountingStrategy:
+    if strategy is not None:
+        return strategy
+
+    from .strategies import DefaultStrategy
+
+    return DefaultStrategy()
 
 
 def to_decimal(value: Any) -> Decimal:
@@ -225,12 +240,34 @@ def infer_statement_role_from_pcg_class(pcg_class: int | None, account: Any | No
     return "unknown"
 
 
+def _classify_cash_flow_role(
+    account: Any,
+    strategy: AccountingStrategy | None = None,
+    investing_account_ids: Iterable[UUID] | None = None,
+    financing_account_ids: Iterable[UUID] | None = None,
+) -> str:
+    account_id = get_line_value(account, "id", None)
+    investing_account_id_set = normalize_account_ids(investing_account_ids)
+    financing_account_id_set = normalize_account_ids(financing_account_ids)
+
+    if financing_account_id_set and account_id in financing_account_id_set:
+        return "financing"
+    if investing_account_id_set and account_id in investing_account_id_set:
+        return "investing"
+
+    return _resolve_accounting_strategy(strategy).classify_cash_flow_role(account)
+
+
 def classify_account(
     account: Any,
     account_index: dict[UUID, Any] | None = None,
+    net_balance: Decimal | None = None,
+    strategy: AccountingStrategy | None = None,
 ) -> AccountClassification:
+    active_strategy = _resolve_accounting_strategy(strategy)
+    normalized_net_balance = ZERO if net_balance is None else to_decimal(net_balance)
     pcg_class, classification_source = resolve_pcg_class_with_source(account)
-    statement_role = infer_statement_role_from_pcg_class(pcg_class, account=account)
+    statement_role = active_strategy.classify_statement_role(account, normalized_net_balance)
     diagnostics: list[str] = []
 
     # If role is unknown and we have an index, try ancestor inheritance
@@ -240,14 +277,23 @@ def classify_account(
             ancestor = account_index.get(parent_id)
             if ancestor:
                 # Recursive call for ancestor
-                ancestor_classification = classify_account(ancestor, account_index=account_index)
+                ancestor_classification = classify_account(
+                    ancestor,
+                    account_index=account_index,
+                    net_balance=normalized_net_balance,
+                    strategy=active_strategy,
+                )
                 if ancestor_classification.statement_role != "unknown":
                     classification_source = "hierarchy"
                     statement_role = ancestor_classification.statement_role
             else:
                 diagnostics.append("missing_parent")
 
-    cash_flow_role = "treasury" if is_treasury_account(account) else classify_cash_flow_account(account)
+    cash_flow_role = (
+        "treasury"
+        if is_treasury_account(account, strategy=active_strategy)
+        else _classify_cash_flow_role(account, strategy=active_strategy)
+    )
     return AccountClassification(
         pcg_class=pcg_class,
         statement_role=statement_role,
@@ -265,6 +311,7 @@ def account_code_matches_prefixes(account: Any | None, prefixes: Sequence[str]) 
 def is_treasury_account(
     account: Any | None,
     treasury_account_ids: Iterable[UUID] | None = None,
+    strategy: AccountingStrategy | None = None,
 ) -> bool:
     if not account:
         return False
@@ -272,6 +319,11 @@ def is_treasury_account(
     treasury_account_id_set = normalize_account_ids(treasury_account_ids)
     if treasury_account_id_set:
         return get_line_value(account, "id", None) in treasury_account_id_set
+
+    active_strategy = _resolve_accounting_strategy(strategy)
+    strategy_is_treasury = getattr(active_strategy, "is_treasury_account", None)
+    if callable(strategy_is_treasury) and strategy_is_treasury(account):
+        return True
 
     pcg_class = resolved_pcg_class(account)
     if pcg_class == 5 and account_code_matches_prefixes(account, TREASURY_ACCOUNT_CODE_PREFIXES):
@@ -352,14 +404,17 @@ def select_counterpart_lines_for_cash_flow(
     counterpart_lines: list[Any],
     investing_account_ids: Iterable[UUID] | None = None,
     financing_account_ids: Iterable[UUID] | None = None,
+    strategy: AccountingStrategy | None = None,
 ) -> list[Any]:
+    active_strategy = _resolve_accounting_strategy(strategy)
     classified_lines = [
         (
             line,
-            classify_cash_flow_account(
+            _classify_cash_flow_role(
                 get_line_value(line, "account", None),
-                investing_account_ids,
-                financing_account_ids,
+                strategy=active_strategy,
+                investing_account_ids=investing_account_ids,
+                financing_account_ids=financing_account_ids,
             ),
         )
         for line in counterpart_lines
@@ -552,8 +607,10 @@ def build_cash_flow_statement(
     treasury_account_ids: Iterable[UUID] | None = None,
     investing_account_ids: Iterable[UUID] | None = None,
     financing_account_ids: Iterable[UUID] | None = None,
+    strategy: AccountingStrategy | None = None,
     generated_at: datetime | None = None,
 ) -> dict[str, Any]:
+    active_strategy = _resolve_accounting_strategy(strategy)
     treasury_account_id_set = normalize_account_ids(treasury_account_ids)
     investing_account_id_set = normalize_account_ids(investing_account_ids)
     financing_account_id_set = normalize_account_ids(financing_account_ids)
@@ -569,7 +626,11 @@ def build_cash_flow_statement(
         treasury_lines = [
             line
             for line in entry_lines
-            if is_treasury_account(get_line_value(line, "account", None), treasury_account_id_set)
+            if is_treasury_account(
+                get_line_value(line, "account", None),
+                treasury_account_id_set,
+                strategy=active_strategy,
+            )
         ]
         if not treasury_lines:
             continue
@@ -588,7 +649,11 @@ def build_cash_flow_statement(
         counterpart_lines = [
             line
             for line in entry_lines
-            if not is_treasury_account(get_line_value(line, "account", None), treasury_account_id_set)
+            if not is_treasury_account(
+                get_line_value(line, "account", None),
+                treasury_account_id_set,
+                strategy=active_strategy,
+            )
             and to_decimal(get_line_value(line, side_field)) > ZERO
         ]
         if not counterpart_lines:
@@ -598,14 +663,16 @@ def build_cash_flow_statement(
             counterpart_lines,
             investing_account_id_set,
             financing_account_id_set,
+            strategy=active_strategy,
         )
 
         net_change_in_cash += treasury_change
         for counterpart_line, amount in allocate_cash_flow_amount(treasury_change, counterpart_lines, side_field):
-            section_key = classify_cash_flow_account(
+            section_key = _classify_cash_flow_role(
                 get_line_value(counterpart_line, "account", None),
-                investing_account_id_set,
-                financing_account_id_set,
+                strategy=active_strategy,
+                investing_account_ids=investing_account_id_set,
+                financing_account_ids=financing_account_id_set,
             )
             accumulate_cash_flow_line(section_buckets[section_key], counterpart_line, amount)
 
