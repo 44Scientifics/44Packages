@@ -44,6 +44,10 @@ trial_balance = generate_trial_balance(db, company_id)
 cash_flow = generate_cash_flow_statement(db, company_id)
 ```
 
+By default, the accounting API now resolves accounts with `SyscohadaStrategy`.
+CompanyOS and Investos callers do not need to pass a strategy explicitly unless
+they need to override this behavior.
+
 If you want the explicit facade module, import `engine`:
 
 ```python
@@ -52,6 +56,20 @@ from FortyFour.accounting import engine
 trial_balance = engine.generate_trial_balance(db, company_id)
 income_statement = engine.generate_income_statement(db, company_id)
 balance_sheet = engine.generate_balance_sheet(db, company_id, end_date)
+```
+
+To opt out of the default SYSCOHADA behavior for a specific call, pass an
+explicit strategy:
+
+```python
+from FortyFour.accounting import generate_trial_balance
+from FortyFour.accounting.strategies import DefaultStrategy
+
+trial_balance = generate_trial_balance(
+    db,
+    company_id,
+    strategy=DefaultStrategy(),
+)
 ```
 
 If you only need the pure business logic, use the core module directly:
@@ -119,4 +137,5 @@ Root package exports:
 
 - The core module does not depend on SQLAlchemy.
 - The SQLAlchemy adapter expects ORM models compatible with the `ChartOfAccount`, `JournalEntry`, and `JournalEntryLine` shape used by FortyFour.
+- Calls that omit `strategy=` now default to `SyscohadaStrategy`.
 - The package-level API is intended to stay stable while internals are refactored.

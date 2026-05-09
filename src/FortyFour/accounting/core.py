@@ -119,9 +119,9 @@ def _resolve_accounting_strategy(
     if strategy is not None:
         return strategy
 
-    from .strategies import DefaultStrategy
+    from .strategies import SyscohadaStrategy
 
-    return DefaultStrategy()
+    return SyscohadaStrategy()
 
 
 def to_decimal(value: Any) -> Decimal:

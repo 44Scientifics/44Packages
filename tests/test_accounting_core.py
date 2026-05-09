@@ -204,6 +204,20 @@ def test_build_balance_sheet_adds_current_period_result_to_equity() -> None:
     assert statement["generated_at"] == generated_at
 
 
+def test_classify_account_uses_syscohada_by_default() -> None:
+    expense_account = make_account(
+        "12121212-1212-1212-1212-121212121212",
+        code="81",
+        name="Valeurs comptables des cessions",
+        account_type="",
+        account_class=8,
+    )
+
+    classification = classify_account(expense_account)
+
+    assert classification.statement_role == "expense"
+
+
 def test_build_cash_flow_statement_classifies_simple_receipt_as_operating() -> None:
     company_id = UUID("44444444-4444-4444-4444-444444444444")
     start_date = datetime(2025, 1, 1, tzinfo=UTC)
@@ -521,7 +535,7 @@ def test_statement_role_uses_pcg_code_when_account_type_is_wrong() -> None:
 def test_code_first_classification_does_not_mark_all_class_five_assets_as_treasury() -> None:
     account = make_account(
         "56565656-5656-5656-5656-565656565656",
-        code="520000",
+        code="590000",
         name="Marketable securities",
         account_type="asset",
         account_class=5,

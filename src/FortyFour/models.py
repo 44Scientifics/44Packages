@@ -34,6 +34,19 @@ JournalEntryStatus: Any = None
 _configured = False
 
 
+def _is_equivalent_model_registration(current: Any, new: Any) -> bool:
+    if current is new:
+        return True
+    if current is None or new is None:
+        return current is None and new is None
+
+    return (
+        getattr(current, "__module__", None) == getattr(new, "__module__", None)
+        and getattr(current, "__qualname__", getattr(current, "__name__", None))
+        == getattr(new, "__qualname__", getattr(new, "__name__", None))
+    )
+
+
 def configure(
     *,
     chart_of_account: Any,
@@ -44,13 +57,27 @@ def configure(
 ) -> None:
     """Register the SQLAlchemy model classes used by the accounting engine.
 
-    Must be called **once** before any ``FortyFour.accounting`` engine
-    function is used.  Raises ``RuntimeError`` on duplicate calls to
-    prevent silent re-configuration.
+    Must be called before any ``FortyFour.accounting`` engine function is
+    used. Repeated calls are accepted only when they re-register the same
+    application model set after a module reload.
     """
     global ChartOfAccount, JournalEntry, JournalEntryLine, JournalEntryAttachment, JournalEntryStatus, _configured
 
     if _configured:
+        if (
+            _is_equivalent_model_registration(ChartOfAccount, chart_of_account)
+            and _is_equivalent_model_registration(JournalEntry, journal_entry)
+            and _is_equivalent_model_registration(JournalEntryLine, journal_entry_line)
+            and _is_equivalent_model_registration(JournalEntryAttachment, journal_entry_attachment)
+            and _is_equivalent_model_registration(JournalEntryStatus, journal_entry_status)
+        ):
+            ChartOfAccount = chart_of_account
+            JournalEntry = journal_entry
+            JournalEntryLine = journal_entry_line
+            JournalEntryAttachment = journal_entry_attachment
+            JournalEntryStatus = journal_entry_status
+            return
+
         raise RuntimeError(
             "FortyFour.models.configure() has already been called. "
             "Model registration must happen exactly once at application startup."
