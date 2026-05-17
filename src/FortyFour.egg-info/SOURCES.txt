@@ -4,6 +4,7 @@
 .python-version
 AGENT.md
 MANIFEST.in
+Ohada_syscohada_plan_comptable.pdf
 README.md
 build.sh
 pyproject.toml
@@ -22,6 +23,7 @@ docs/plans/2026-03-08-package-reorganization-design.md
 docs/plans/2026-03-08-package-reorganization.md
 docs/plans/2026-04-29-accounting-hierarchical-classification-design.md
 docs/plans/2026-04-29-accounting-hierarchical-classification.md
+docs/plans/2026-05-09-syscohada-accounting-rules.md
 src/44packages/__init__.py
 src/44packages/py.typed
 src/FortyFour/__init__.py
