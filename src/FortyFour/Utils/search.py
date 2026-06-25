@@ -3,6 +3,15 @@ SQLAlchemy Fuzzy Search Utilities
 
 Provides reusable functions for building PostgreSQL-powered fuzzy search
 queries using the `unaccent` and `pg_trgm` extensions.
+
+**Required PostgreSQL setup:** Run these once on your database:
+
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    CREATE EXTENSION IF NOT EXISTS unaccent;
+    CREATE OR REPLACE FUNCTION f_unaccent(text)
+        RETURNS text AS $$
+        SELECT public.unaccent('public.unaccent', $1)
+    $$ LANGUAGE sql IMMUTABLE;
 """
 
 from sqlalchemy import func, or_, String, Text, inspect as sa_inspect

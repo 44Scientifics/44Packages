@@ -5,17 +5,24 @@ import logging
 from typing import List, Dict, Any, Optional
 
 
-def serialize_date_in_dict(my_dict: dict):
+def serialize_date_in_dict(my_dict: dict, silent: bool = True) -> dict:
+    """Recursively parse date strings in a dict, returning a new dict with dates combined at midnight."""
+    result = {}
     for key, value in my_dict.items():
         if isinstance(value, dict):
-            value = serialize_date_in_dict(value)
+            result[key] = serialize_date_in_dict(value, silent=silent)
+            continue
         try:
-            my_dict[key] = parse(value)
-            my_dict[key] = datetime.combine(my_dict[key], datetime.min.time())
-        except:
-            # print("convert_string_to_date_in_dict() as encounter an exception")
-            pass
-    return my_dict
+            parsed = parse(value)
+            result[key] = datetime.combine(parsed, datetime.min.time())
+        except Exception:
+            if not silent:
+                logging.warning(
+                    'The function serialize_date_in_dict() encountered an exception for key=%s value=%s',
+                    key, value, exc_info=True
+                )
+            result[key] = value
+    return result
 
 
 def remove_nan_values_from_dict(my_dict: dict):
@@ -37,26 +44,17 @@ def remove_nan_values_from_dict(my_dict: dict):
     for key, value in my_dict.items():
         if isinstance(value, dict):
             value = remove_nan_values_from_dict(value)
-        if value is not np.nan:
+        try:
+            is_nan = np.isnan(value)
+        except (TypeError, ValueError):
+            is_nan = False
+        if not is_nan:
             clean_dict[key] = value
     return clean_dict
 
 
-def convert_string_to_date_in_dict(my_dict: dict):
-    for key, value in my_dict.items():
-        if isinstance(value, dict):
-            value = convert_string_to_date_in_dict(value)
-        try:
-            my_dict[key] = parse(value)
-            my_dict[key] = datetime.combine(my_dict[key], datetime.min.time())
-        except Exception as e:
-            logging.warning('The function convert_string_to_date_in_dict(my_dict) encounter an exeption: ', e)
-    return my_dict
-
-
-def sort_dict_by_key(my_dict: dict, key: str, reverse: bool):
-    newlistOfDict = sorted(my_dict, key=lambda d: d[key], reverse=reverse)
-    return newlistOfDict
+def sort_dict_by_key(items: List[Dict[str, Any]], key: str, reverse: bool) -> List[Dict[str, Any]]:
+    return sorted(items, key=lambda d: d[key], reverse=reverse)
 
 
 
