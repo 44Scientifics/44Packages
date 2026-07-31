@@ -1,6 +1,6 @@
+import importlib
 import os
 import sys
-import importlib
 from uuid import UUID
 
 import pytest
@@ -38,8 +38,7 @@ def test_finance_accounting_engine_module_is_removed() -> None:
 
 
 def test_accounting_engine_forwards_strategy_to_adapter(monkeypatch) -> None:
-    from FortyFour.accounting import engine
-    from FortyFour.accounting import sqlalchemy_adapter
+    from FortyFour.accounting import engine, sqlalchemy_adapter
     from FortyFour.accounting.strategies import SyscohadaStrategy
 
     expected = {"statement": "ok"}
@@ -51,9 +50,11 @@ def test_accounting_engine_forwards_strategy_to_adapter(monkeypatch) -> None:
         start_date=None,
         end_date=None,
         strategy=None,
+        currency=None,
     ):
         captured["company_id"] = company_id
         captured["strategy"] = strategy
+        captured["currency"] = currency
         return expected
 
     monkeypatch.setattr(sqlalchemy_adapter, "generate_trial_balance", fake_generate_trial_balance)
@@ -63,8 +64,10 @@ def test_accounting_engine_forwards_strategy_to_adapter(monkeypatch) -> None:
         db=object(),
         company_id=UUID("99999999-9999-9999-9999-999999999999"),
         strategy=strategy,
+        currency="EUR",
     )
 
     assert statement == expected
     assert captured["company_id"] == UUID("99999999-9999-9999-9999-999999999999")
     assert captured["strategy"] is strategy
+    assert captured["currency"] == "EUR"

@@ -313,7 +313,7 @@ def test_build_cash_flow_statement_uses_strategy_for_section_mapping() -> None:
     ]
 
     class FinancingCashFlowStrategy:
-        def classify_statement_role(self, account, net_balance):
+        def classify_statement_role(self, account, _net_balance):
             return "unknown"
 
         def classify_cash_flow_role(self, account):

@@ -3,9 +3,12 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from ..core import account_code, account_code_matches_prefixes, resolve_pcg_class_with_source
+from ..core import (
+    account_code,
+    account_code_matches_prefixes,
+    resolve_pcg_class_with_source,
+)
 from .base import DefaultStrategy
-
 
 SYSCOHADA_FINANCING_CODE_PREFIXES = (
     "10",

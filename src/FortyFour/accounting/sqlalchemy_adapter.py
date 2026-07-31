@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import func
@@ -10,10 +11,10 @@ from sqlalchemy.orm import Session, joinedload
 from .. import models
 from ..models import _assert_configured
 from .core import (
+    ZERO,
     AccountSnapshot,
     EntryLineSnapshot,
     JournalEntrySnapshot,
-    ZERO,
     build_balance_sheet,
     build_cash_flow_statement,
     build_income_statement,
@@ -24,7 +25,6 @@ from .core import (
     normalize_account_ids,
     to_decimal,
 )
-
 
 if TYPE_CHECKING:
     from .strategies import AccountingStrategy
@@ -98,11 +98,11 @@ def _validate_cash_flow_overrides(
             raise ValueError(f"Cash flow override account not found: {account_id}")
         if account.account_owner and account.account_owner != company_id:
             raise ValueError(
-                (
+                
                     f"Ownership mismatch: Account '{account.code} - {account.name}' "
                     f"(ID: {account.id}) is owned by company '{account.account_owner}', "
                     f"but the cash flow statement belongs to '{company_id}'."
-                )
+                
             )
 
 
@@ -133,11 +133,11 @@ def assert_company_owns_accounts(
             raise ValueError(f"Account '{account.code} - {account.name}' is inactive")
         if account.account_owner and account.account_owner != company_id:
             raise ValueError(
-                (
+                
                     f"Ownership mismatch: Account '{account.code} - {account.name}' "
                     f"(ID: {account.id}) is owned by company '{account.account_owner}', "
                     f"but the journal entry belongs to '{company_id}'. The initiator must be the account owner."
-                )
+                
             )
 
     return accounts_by_id
@@ -153,16 +153,22 @@ def _get_posted_status():
 
 def _build_line_query(
     db: Session,
-    company_id: UUID,
+    company_id: UUID | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
+    currency: str | None = None,
 ):
     query = (
         db.query(models.JournalEntryLine)
         .join(models.JournalEntry)
-        .filter(models.JournalEntry.company_id == company_id)
         .filter(models.JournalEntry.status == _get_posted_status())
     )
+
+    if company_id is not None and hasattr(models.JournalEntry, "company_id"):
+        query = query.filter(models.JournalEntry.company_id == company_id)
+
+    if currency is not None:
+        query = query.filter(models.JournalEntry.currency == currency)
 
     if start_date:
         query = query.filter(models.JournalEntry.date >= start_date)
@@ -216,6 +222,33 @@ def get_account_balance(
     return debit_total - credit_total
 
 
+def _get_opening_balances(
+    db: Session,
+    account_ids: list,
+    before_date: datetime,
+    company_id: UUID | None = None,
+    currency: str | None = None,
+):
+    """Return {account_id: signed_balance} for all lines before before_date."""
+    if not account_ids:
+        return {}
+    query = (
+        _build_line_query(db, company_id=company_id, end_date=before_date - timedelta(seconds=1), currency=currency)
+        .join(models.ChartOfAccount, models.ChartOfAccount.id == models.JournalEntryLine.account_id)
+        .filter(models.JournalEntryLine.account_id.in_(account_ids))
+    )
+    rows = (
+        query.with_entities(
+            models.JournalEntryLine.account_id,
+            func.coalesce(func.sum(models.JournalEntryLine.debit), 0),
+            func.coalesce(func.sum(models.JournalEntryLine.credit), 0),
+        )
+        .group_by(models.JournalEntryLine.account_id)
+        .all()
+    )
+    return {row[0]: to_decimal(row[1]) - to_decimal(row[2]) for row in rows}
+
+
 def _group_posted_lines(
     db: Session,
     company_id: UUID,
@@ -223,9 +256,11 @@ def _group_posted_lines(
     end_date: datetime | None = None,
     account_types: Iterable[str] | None = None,
     strategy: AccountingStrategy | None = None,
+    currency: str | None = None,
+    normalize_balances: bool = True,
 ):
     query = (
-        _build_line_query(db, company_id=company_id, start_date=start_date, end_date=end_date)
+        _build_line_query(db, company_id=company_id, start_date=start_date, end_date=end_date, currency=currency)
         .join(models.ChartOfAccount, models.ChartOfAccount.id == models.JournalEntryLine.account_id)
     )
     if account_types:
@@ -254,6 +289,17 @@ def _group_posted_lines(
         .all()
     )
 
+    opening_map: dict = {}
+    if start_date is not None:
+        account_ids = [row[0] for row in rows]
+        opening_map = _get_opening_balances(
+            db,
+            account_ids=account_ids,
+            before_date=start_date,
+            company_id=company_id,
+            currency=currency,
+        )
+
     items = []
     account_index = _get_account_index(db, company_id)
 
@@ -273,10 +319,18 @@ def _group_posted_lines(
         role = classification.statement_role
 
         # Reports expect balances relative to the account type's natural side
-        if role in {"revenue", "liability", "equity"}:
+        if normalize_balances and role in {"revenue", "liability", "equity"}:
             net_balance = credit - debit
         else:
             net_balance = debit - credit
+
+        opening_signed = opening_map.get(row[0], ZERO)
+        if normalize_balances and role in {"revenue", "liability", "equity"}:
+            opening_balance = -opening_signed
+        else:
+            opening_balance = opening_signed
+
+        closing_balance = opening_balance + net_balance
         
         items.append(
             {
@@ -291,6 +345,8 @@ def _group_posted_lines(
                 "debit": debit,
                 "credit": credit,
                 "net_balance": net_balance,
+                "opening_balance": opening_balance,
+                "closing_balance": closing_balance,
             }
         )
     return items
@@ -302,6 +358,7 @@ def generate_trial_balance(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     strategy: AccountingStrategy | None = None,
+    currency: str | None = None,
 ):
     _assert_configured()
     items = _group_posted_lines(
@@ -310,13 +367,16 @@ def generate_trial_balance(
         start_date=start_date,
         end_date=end_date,
         strategy=strategy,
+        currency=currency,
+        normalize_balances=False,
     )
     return build_trial_balance(
         company_id=company_id,
         items=items,
         start_date=start_date,
         end_date=end_date,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
+        currency=currency,
     )
 
 
@@ -342,7 +402,7 @@ def generate_income_statement(
         expense_items=items,
         start_date=start_date,
         end_date=end_date,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
 
 
@@ -373,7 +433,7 @@ def generate_balance_sheet(
         liability_items=items,
         equity_items=items,
         net_income=income_statement["net_income"],
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
 
 
@@ -490,7 +550,7 @@ def generate_cash_flow_statement(
         investing_account_ids=investing_account_id_set,
         financing_account_ids=financing_account_id_set,
         strategy=strategy,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
     )
 
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from .core import validate_journal_entry_lines
-
 
 if TYPE_CHECKING:
     from .strategies import AccountingStrategy
@@ -42,10 +42,11 @@ def generate_trial_balance(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     strategy: AccountingStrategy | None = None,
+    currency: str | None = None,
 ):
     from .sqlalchemy_adapter import generate_trial_balance as _impl
 
-    return _impl(db, company_id, start_date=start_date, end_date=end_date, strategy=strategy)
+    return _impl(db, company_id, start_date=start_date, end_date=end_date, strategy=strategy, currency=currency)
 
 
 def generate_income_statement(

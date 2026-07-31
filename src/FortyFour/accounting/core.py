@@ -1,25 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Iterable, Sequence
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
-
 
 if TYPE_CHECKING:
     from .strategies import AccountingStrategy
 
 
 ZERO = Decimal("0.00")
-DEFAULT_ACCOUNT_CLASS_BY_TYPE = {
-    "asset": 5,
-    "liability": 4,
-    "equity": 1,
-    "expense": 6,
-    "revenue": 7,
-    "income": 7,
-}
 TREASURY_ACCOUNT_NAME_MARKERS = (
     "bank",
     "cash",
@@ -521,6 +513,7 @@ def build_trial_balance(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     generated_at: datetime | None = None,
+    currency: str | None = None,
 ) -> dict[str, Any]:
     total_debit = sum((to_decimal(item["debit"]) for item in items), ZERO)
     total_credit = sum((to_decimal(item["credit"]) for item in items), ZERO)
@@ -531,7 +524,8 @@ def build_trial_balance(
         "items": items,
         "total_debit": total_debit,
         "total_credit": total_credit,
-        "generated_at": generated_at or datetime.now(timezone.utc),
+        "generated_at": generated_at or datetime.now(UTC),
+        "currency": currency,
     }
 
 
@@ -556,7 +550,7 @@ def build_income_statement(
         "total_revenue": total_revenue,
         "total_expenses": total_expenses,
         "net_income": total_revenue - total_expenses,
-        "generated_at": generated_at or datetime.now(timezone.utc),
+        "generated_at": generated_at or datetime.now(UTC),
     }
 
 
@@ -594,7 +588,7 @@ def build_balance_sheet(
         "equity": equity_section,
         "total_assets": total_assets,
         "total_liabilities_and_equity": total_liabilities_and_equity,
-        "generated_at": generated_at or datetime.now(timezone.utc),
+        "generated_at": generated_at or datetime.now(UTC),
     }
 
 
@@ -703,16 +697,16 @@ def build_cash_flow_statement(
         "net_change_in_cash": to_decimal(net_change_in_cash),
         "opening_cash_balance": to_decimal(normalized_closing_cash_balance - net_change_in_cash),
         "closing_cash_balance": normalized_closing_cash_balance,
-        "generated_at": generated_at or datetime.now(timezone.utc),
+        "generated_at": generated_at or datetime.now(UTC),
     }
 
 
 __all__ = [
+    "ZERO",
     "AccountClassification",
     "AccountSnapshot",
     "EntryLineSnapshot",
     "JournalEntrySnapshot",
-    "ZERO",
     "account_code",
     "account_code_matches_prefixes",
     "account_text",
