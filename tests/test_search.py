@@ -82,91 +82,11 @@ def test_apply_fuzzy_search_empty_term_returns_unchanged():
 
     stmt = select(TestModel)
     assert apply_fuzzy_search(stmt, "", TestModel.name) is stmt
-    assert apply_fuzzy_search(stmt, "", TestModel.name, dialect="sqlite") is stmt
     assert apply_fuzzy_search(stmt, None, TestModel.name) is stmt
 
 
-def test_apply_fuzzy_search_sqlite_uses_case_insensitive_like():
-    """SQLite dialect builds a case-insensitive LIKE predicate (no pg_trgm)."""
-    Base = declarative_base()
-
-    class TestModel(Base):
-        __tablename__ = "test_sqlite_like"
-        id = Column(Integer, primary_key=True)
-        name = Column(String)
-
-    stmt = select(TestModel)
-    result = apply_fuzzy_search(stmt, "alpha", TestModel.name, dialect="sqlite")
-
-    compiled = str(result.compile(compile_kwargs={"literal_binds": True})).lower()
-    assert "lower(" in compiled
-    assert "like" in compiled
-    assert "%alpha%" in compiled
-
-
-def test_apply_fuzzy_search_sqlite_roundtrip():
-    """SQLite LIKE fallback filters rows end-to-end on an in-memory database."""
-    Base = declarative_base()
-
-    class TestModel(Base):
-        __tablename__ = "test_sqlite_roundtrip"
-        id = Column(Integer, primary_key=True)
-        name = Column(String)
-
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
-        session.add_all(
-            [
-                TestModel(name="Alpha Beta"),
-                TestModel(name="Gamma Delta"),
-            ]
-        )
-        session.commit()
-
-        stmt = select(TestModel)
-        result = apply_fuzzy_search(stmt, "alpha", TestModel.name, dialect="sqlite")
-        rows = session.execute(result).scalars().all()
-        assert [row.name for row in rows] == ["Alpha Beta"]
-
-
-def test_apply_fuzzy_search_sqlite_multiple_columns_ored():
-    """Multiple columns produce OR'ed LIKE predicates on SQLite."""
-    Base = declarative_base()
-
-    class TestModel(Base):
-        __tablename__ = "test_sqlite_or"
-        id = Column(Integer, primary_key=True)
-        name = Column(String)
-        description = Column(String)
-
-    stmt = select(TestModel)
-    result = apply_fuzzy_search(
-        stmt, "alpha", TestModel.name, TestModel.description, dialect="sqlite"
-    )
-
-    compiled = str(result.compile())
-    assert "OR" in compiled.upper()
-    assert compiled.lower().count("like") == 2
-
-
-def test_apply_fuzzy_search_orm_query_dual_style():
-    """ORM Query objects are supported via the .filter() path (default dialect)."""
-    Base = declarative_base()
-
-    class TestModel(Base):
-        __tablename__ = "test_orm_query"
-        id = Column(Integer, primary_key=True)
-        name = Column(String)
-
-    query = Query(TestModel)
-    result = apply_fuzzy_search(query, "hello", TestModel.name)
-    assert isinstance(result, Query)
-    assert result.whereclause is not None
-
-
-def test_apply_fuzzy_search_select_dual_style():
-    """Core Select statements are supported via the .where() path."""
+def test_apply_fuzzy_search_select():
+    """Core Select statements are filtered via .where() with pg_trgm operators."""
     Base = declarative_base()
 
     class TestModel(Base):
@@ -180,3 +100,39 @@ def test_apply_fuzzy_search_select_dual_style():
     compiled = str(result.compile())
     assert "<%" in compiled  # pg_trgm word_similarity operator
     assert "order by" in compiled.lower()  # relevance sort applied
+
+
+def test_apply_fuzzy_search_multiple_columns_ored():
+    """Multiple columns produce OR'ed fuzzy predicates."""
+    Base = declarative_base()
+
+    class TestModel(Base):
+        __tablename__ = "test_or"
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+        description = Column(String)
+
+    stmt = select(TestModel)
+    result = apply_fuzzy_search(stmt, "alpha", TestModel.name, TestModel.description)
+
+    compiled = str(result.compile())
+    assert compiled.upper().count("OR") >= 1
+    assert compiled.count("<%") == 2
+
+
+def test_apply_fuzzy_search_threshold_uses_explicit_comparison():
+    """A provided threshold replaces the <% operator with word_similarity >= x."""
+    Base = declarative_base()
+
+    class TestModel(Base):
+        __tablename__ = "test_threshold"
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+
+    stmt = select(TestModel)
+    result = apply_fuzzy_search(stmt, "hello", TestModel.name, threshold=0.5)
+
+    compiled = str(result.compile(compile_kwargs={"literal_binds": True}))
+    assert "<%" not in compiled
+    assert "word_similarity" in compiled
+    assert ">= 0.5" in compiled

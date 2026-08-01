@@ -2,8 +2,7 @@
 SQLAlchemy Fuzzy Search Utilities
 
 Provides reusable functions for building PostgreSQL-powered fuzzy search
-queries using the `unaccent` and `pg_trgm` extensions, with a
-case-insensitive ``LIKE`` fallback for SQLite.
+queries using the ``unaccent`` and ``pg_trgm`` extensions.
 
 **Required PostgreSQL setup:** Run these once on your database:
 
@@ -14,21 +13,13 @@ case-insensitive ``LIKE`` fallback for SQLite.
         SELECT public.unaccent('public.unaccent', $1)
     $$ LANGUAGE sql IMMUTABLE;
 
-**Dual-style support:** ``apply_fuzzy_search`` accepts both SQLAlchemy 1.x
-ORM ``Query`` objects (filtered via ``.filter()``) and 2.0 Core ``Select``
-statements (filtered via ``.where()``). The correct method is chosen by
-duck-typing: ``.filter()`` is tried first, falling back to ``.where()``.
-
-**Dialect:** pass ``dialect="sqlite"`` when building queries against a
-SQLite database — pg_trgm/unaccent operators are unavailable there, so a
-case-insensitive ``LIKE`` predicate is used instead. The dialect is an
-explicit parameter; this module never reads application configuration.
+**Statement style:** ``apply_fuzzy_search`` operates on SQLAlchemy 2.0 Core
+``Select`` statements (filtered via ``.where()``).
 """
 
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import Select, String, Text, cast, func, or_
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import Query
 from sqlalchemy.orm.exc import UnmappedClassError
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -63,8 +54,6 @@ def _resolve_columns(statement, items: tuple) -> list:
       - ColumnElement: kept as-is.
       - Model class (has __table__): extracts its String/Text columns.
       - Empty tuple: infers the model from the statement's column_descriptions.
-
-    Works for both ORM ``Query`` and Core ``Select`` statements.
     """
     columns = []
 
@@ -90,19 +79,6 @@ def _resolve_columns(statement, items: tuple) -> list:
     return columns
 
 
-def _apply_criteria(statement, criteria) -> Query | Select:
-    """
-    Apply a filter criteria to either an ORM ``Query`` or a Core ``Select``.
-
-    Duck-typing: try ``.filter()`` first (ORM Query), fall back to
-    ``.where()`` (Core Select, or any where()-only statement object).
-    """
-    try:
-        return statement.filter(criteria)
-    except AttributeError:
-        return statement.where(criteria)
-
-
 def _coerce_searchable(column: ColumnElement) -> ColumnElement:
     """
     Return a column safely usable with f_unaccent/coalesce.
@@ -119,7 +95,8 @@ def _coerce_searchable(column: ColumnElement) -> ColumnElement:
 def fuzzy_match(column: ColumnElement, term: str) -> ColumnElement:
     """
     Build a single fuzzy match condition for one column.
-    Uses word_similarity operator (<%).
+    Uses the word_similarity operator (<%), which applies the session-global
+    ``pg_trgm.word_similarity_threshold`` (default 0.3).
     """
     column = _coerce_searchable(column)
     return func.f_unaccent(term).bool_op("<%")(func.f_unaccent(func.coalesce(column, "")))
@@ -133,26 +110,41 @@ def fuzzy_similarity(column: ColumnElement, term: str) -> ColumnElement:
     return func.word_similarity(func.f_unaccent(term), func.f_unaccent(func.coalesce(column, "")))
 
 
+def _match_condition(column: ColumnElement, term: str, threshold: float | None) -> ColumnElement:
+    """
+    Build the match predicate for one column.
+
+    - ``threshold is None`` (default): ``<%`` operator — uses the session-global
+      ``pg_trgm.word_similarity_threshold``, index-friendly.
+    - ``threshold`` provided: explicit ``word_similarity(...) >= threshold``
+      comparison (no index use, acceptable on small volumes).
+    """
+    if threshold is None:
+        return fuzzy_match(column, term)
+    return fuzzy_similarity(column, term) >= threshold
+
+
 def apply_fuzzy_search(
-    statement: Query | Select,
+    statement: Select,
     query_text: str,
     *columns: ColumnElement,
-    dialect: str = "postgresql",
-) -> Query | Select:
+    threshold: float | None = None,
+) -> Select:
     """
     Apply fuzzy, accent-insensitive search across one or more columns.
 
-    - Filters rows where ANY of the given columns fuzzy-match the term.
-    - Orders results by the BEST similarity score (descending) on PostgreSQL.
+    - Filters rows where ANY of the given columns fuzzy-match the term
+      (pg_trgm word_similarity against the session-global
+      ``pg_trgm.word_similarity_threshold``, default 0.3).
+    - ``threshold`` overrides the similarity threshold for this call via an
+      explicit ``word_similarity(...) >= threshold`` comparison.
+    - Orders results by the BEST similarity score (descending). Note: the
+      ``order_by`` is appended — do not pre-order the statement when relying
+      on relevance ordering.
 
     Accepts individual column attributes, full model classes, or nothing
-    (in which case the model is inferred from the statement). Both ORM
-    ``Query`` objects (``.filter()``) and 2.0 Core ``Select`` statements
-    (``.where()``) are supported via duck-typing.
-
-    ``dialect`` selects the backend strategy:
-      - ``"postgresql"`` (default): pg_trgm/unaccent operators.
-      - ``"sqlite"``: case-insensitive ``LIKE`` on lowercase text.
+    (in which case the model is inferred from the statement). Operates on
+    SQLAlchemy 2.0 Core ``Select`` statements.
 
     Pure statement builder: returns a new statement — it never executes.
     """
@@ -163,19 +155,9 @@ def apply_fuzzy_search(
     if not resolved:
         return statement
 
-    if dialect == "sqlite":
-        # SQLite fallback: pg_trgm/unaccent operators are unavailable — use a
-        # case-insensitive LIKE on the raw text columns instead.
-        normalized_query = f"%{query_text.lower()}%"
-        predicates = [
-            func.lower(func.coalesce(cast(col, String), "")).like(normalized_query)
-            for col in resolved
-        ]
-        return _apply_criteria(statement, or_(*predicates))
-
     # Build OR filter: match on any column
-    conditions = [fuzzy_match(col, query_text) for col in resolved]
-    statement = _apply_criteria(statement, or_(*conditions))
+    conditions = [_match_condition(col, query_text, threshold) for col in resolved]
+    statement = statement.where(or_(*conditions))
 
     # Build relevance score: take the MAX similarity across all columns
     if len(resolved) == 1:
