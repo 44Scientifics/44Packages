@@ -1,6 +1,7 @@
+import enum
 from unittest.mock import MagicMock
 
-from sqlalchemy import Column, Integer, String, create_engine, select
+from sqlalchemy import Column, Enum, Integer, String, create_engine, select
 from sqlalchemy.orm import Query, Session, declarative_base
 
 from FortyFour.Utils.search import (
@@ -41,6 +42,34 @@ def test_extract_string_columns_skips_non_string():
     col_names = [c.name for c in cols]
     assert "name" in col_names
     assert "id" not in col_names
+
+
+def test_extract_string_columns_skips_enum():
+    """SAEnum subclasses String but must NOT be picked up by inference."""
+    class Status(str, enum.Enum):
+        ACTIVE = "active"
+        INACTIVE = "inactive"
+
+    Base = declarative_base()
+
+    class TestModel(Base):
+        __tablename__ = "test_enum_skip"
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+        status = Column(Enum(Status))
+
+    # Direct helper check.
+    col_names = [c.name for c in _extract_string_columns(TestModel)]
+    assert "name" in col_names
+    assert "status" not in col_names
+
+    # Inference through apply_fuzzy_search (no explicit columns) must also
+    # exclude the enum column from the generated predicate (the SELECT list
+    # legitimately still contains it — the whole entity is selected).
+    stmt = select(TestModel)
+    compiled = str(apply_fuzzy_search(stmt, "ac").compile())
+    assert "coalesce(test_enum_skip.name" in compiled
+    assert "coalesce(test_enum_skip.status" not in compiled
 
 
 def test_apply_fuzzy_search_empty_term_returns_unchanged():

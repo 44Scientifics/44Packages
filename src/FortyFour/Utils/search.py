@@ -25,6 +25,7 @@ case-insensitive ``LIKE`` predicate is used instead. The dialect is an
 explicit parameter; this module never reads application configuration.
 """
 
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy import Select, String, Text, cast, func, or_
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Query
@@ -46,7 +47,10 @@ def _extract_string_columns(model) -> list:
     columns = []
     for attr in mapper.column_attrs:
         col = attr.columns[0]
-        if isinstance(col.type, _SEARCHABLE_TYPES):
+        # SAEnum subclasses String but is NOT searchable: on PostgreSQL there is
+        # no implicit enum->text cast, so f_unaccent(coalesce(enum_col, ''))
+        # fails at runtime. Explicitly exclude enum-typed columns.
+        if isinstance(col.type, _SEARCHABLE_TYPES) and not isinstance(col.type, SAEnum):
             columns.append(col)
     return columns
 
@@ -99,11 +103,25 @@ def _apply_criteria(statement, criteria) -> Query | Select:
         return statement.where(criteria)
 
 
+def _coerce_searchable(column: ColumnElement) -> ColumnElement:
+    """
+    Return a column safely usable with f_unaccent/coalesce.
+
+    Enum-typed columns are cast to String explicitly: PostgreSQL has no
+    implicit enum->text cast, so coalesce(enum_col, '') alone fails at
+    runtime. Non-enum columns pass through unchanged.
+    """
+    if isinstance(getattr(column, "type", None), SAEnum):
+        return cast(column, String)
+    return column
+
+
 def fuzzy_match(column: ColumnElement, term: str) -> ColumnElement:
     """
     Build a single fuzzy match condition for one column.
     Uses word_similarity operator (<%).
     """
+    column = _coerce_searchable(column)
     return func.f_unaccent(term).bool_op("<%")(func.f_unaccent(func.coalesce(column, "")))
 
 
@@ -111,6 +129,7 @@ def fuzzy_similarity(column: ColumnElement, term: str) -> ColumnElement:
     """
     Compute the trigram word_similarity score between a search term and a column.
     """
+    column = _coerce_searchable(column)
     return func.word_similarity(func.f_unaccent(term), func.f_unaccent(func.coalesce(column, "")))
 
 
