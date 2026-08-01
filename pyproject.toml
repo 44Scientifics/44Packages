@@ -18,6 +18,9 @@ dependencies = [
     "sqlalchemy>=2.0.49",
 ]
 
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.110"]
+
 [project.urls]
 Homepage = "https://github.com/44Scientifics/44Packages.git"
 

@@ -27,6 +27,8 @@ docs/plans/2026-05-09-syscohada-accounting-rules.md
 docs/plans/2026-05-17-cli-agent-sidecars-design.md
 docs/plans/2026-05-17-cli-agent-sidecars.md
 docs/plans/2026-06-25_plan-fix-utils-module.md
+docs/superpowers/plans/2026-06-28-openapi-to-cli-plan.md
+docs/superpowers/specs/2026-06-28-openapi-to-cli-design.md
 src/FortyFour/__init__.py
 src/FortyFour/models.py
 src/FortyFour.egg-info/PKG-INFO
@@ -43,6 +45,7 @@ src/FortyFour/Utils/aws.py
 src/FortyFour/Utils/cli_generator.py
 src/FortyFour/Utils/colors.py
 src/FortyFour/Utils/helpers.py
+src/FortyFour/Utils/pagination.py
 src/FortyFour/Utils/search.py
 src/FortyFour/accounting/README.md
 src/FortyFour/accounting/__init__.py
@@ -52,6 +55,7 @@ src/FortyFour/accounting/sqlalchemy_adapter.py
 src/FortyFour/accounting/strategies/__init__.py
 src/FortyFour/accounting/strategies/base.py
 src/FortyFour/accounting/strategies/syscohada.py
+tests/test_accounting_adapter.py
 tests/test_accounting_core.py
 tests/test_accounting_module_layout.py
 tests/test_accounting_strategies.py

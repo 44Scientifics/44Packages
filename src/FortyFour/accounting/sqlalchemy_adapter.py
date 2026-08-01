@@ -42,7 +42,7 @@ def _to_account_snapshot(account: models.ChartOfAccount) -> AccountSnapshot:
     )
 
 
-def _get_account_index(db: Session, company_id: UUID) -> dict[UUID, models.ChartOfAccount]:
+def _get_account_index(db: Session, company_id: UUID | None) -> dict[UUID, models.ChartOfAccount]:
     """Pre-fetch all accounts for a company to support hierarchical classification."""
     accounts = (
         db.query(models.ChartOfAccount)
@@ -251,7 +251,7 @@ def _get_opening_balances(
 
 def _group_posted_lines(
     db: Session,
-    company_id: UUID,
+    company_id: UUID | None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     account_types: Iterable[str] | None = None,
@@ -354,7 +354,7 @@ def _group_posted_lines(
 
 def generate_trial_balance(
     db: Session,
-    company_id: UUID,
+    company_id: UUID | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     strategy: AccountingStrategy | None = None,

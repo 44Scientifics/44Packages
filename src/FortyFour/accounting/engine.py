@@ -38,7 +38,7 @@ def get_account_balance(
 
 def generate_trial_balance(
     db: Any,
-    company_id: UUID,
+    company_id: UUID | None = None,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     strategy: AccountingStrategy | None = None,
