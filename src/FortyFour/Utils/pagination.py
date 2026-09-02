@@ -10,7 +10,7 @@ actually used. The rest of the ``FortyFour`` library imports cleanly
 without it.
 """
 from dataclasses import dataclass
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 try:
     from fastapi import Depends, Query
@@ -28,7 +28,7 @@ class PaginationParams:
     size: int
     q: Optional[str]  # noqa: UP045 - kept byte-for-byte identical to investos
     sort_by: str
-    order: str
+    order: Literal["asc", "desc"]
 
 
 async def pagination(
@@ -36,7 +36,7 @@ async def pagination(
     size: int = Query(20, ge=0, description="Items per page (0 for unlimited)"),
     q: Optional[str] = Query(None, description="Fuzzy search query for typo-tolerant matching across text fields"),  # noqa: UP045 - kept byte-for-byte identical to investos
     sort_by: str = Query("id", description="Field to sort by"),
-    order: str = Query("asc", description="Sort direction (asc or desc)"),
+    order: Literal["asc", "desc"] = Query("asc", description="Sort direction (asc or desc)"),
 ) -> PaginationParams:
     """Return standardised pagination, search, and sort parameters."""
     return PaginationParams(page=page, size=size, q=q, sort_by=sort_by, order=order)
